@@ -16,6 +16,9 @@ colors.scrollbarGrip = Color(70,70,90,255)
 colors.scrollbarGripHover = Color(100,100,130,255)
 colors.scrollbarBorder = Color(100,100,120,200)
 colors.previewBorder = Color(255,200,50,255)
+colors.entryBackground = Color(255,255,255,245)
+colors.entryText = Color(12,18,28,255)
+colors.entryPlaceholder = Color(110,120,135,255)
 
 local presetsDir = "zcity/appearances/presets/"
 
@@ -76,6 +79,34 @@ local function PrecacheAccessoryModels()
             end
         end
     end)
+end
+
+local function NormalizeAppearanceTable(tbl)
+    if not istable(tbl) then
+        tbl = (isfunction(APmodule.GetRandomAppearance) and APmodule.GetRandomAppearance()) or {}
+    end
+
+    tbl.AAttachments = istable(tbl.AAttachments) and tbl.AAttachments or {}
+    tbl.AAttachments[1] = tbl.AAttachments[1] or "none"
+    tbl.AAttachments[2] = tbl.AAttachments[2] or "none"
+    tbl.AAttachments[3] = tbl.AAttachments[3] or "none"
+
+    tbl.AClothes = istable(tbl.AClothes) and tbl.AClothes or {}
+    tbl.ABodygroups = istable(tbl.ABodygroups) and tbl.ABodygroups or {}
+    tbl.AColor = IsColor(tbl.AColor) and tbl.AColor or color_white
+    tbl.AName = tbl.AName or ""
+
+    if not tbl.AModel and istable(APmodule.PlayerModels) then
+        local firstGroup = APmodule.PlayerModels[1] or APmodule.PlayerModels[2]
+        if istable(firstGroup) then
+            for modelName in pairs(firstGroup) do
+                tbl.AModel = modelName
+                break
+            end
+        end
+    end
+
+    return tbl
 end
 
 
@@ -254,7 +285,7 @@ local function CreateStyledAccessoryMenu(parent, title)
 end
 
 function PANEL:SetAppearance( tAppearacne )
-    self.AppearanceTable = tAppearacne
+    self.AppearanceTable = NormalizeAppearanceTable(tAppearacne)
 end
 
 function PANEL:CallbackAppearance()
@@ -314,7 +345,7 @@ function PANEL:PostInit()
     self:SetDraggable(false)
     self.modelPosID = "All"
 
-    self.AppearanceTable = self.AppearanceTable or hg.Appearance.LoadAppearanceFile(hg.Appearance.SelectedAppearance:GetString()) or APmodule.GetRandomAppearance()
+    self.AppearanceTable = NormalizeAppearanceTable(self.AppearanceTable or hg.Appearance.LoadAppearanceFile(hg.Appearance.SelectedAppearance:GetString()))
 
     local tMdl = APmodule.PlayerModels[1][self.AppearanceTable.AModel] or APmodule.PlayerModels[2][self.AppearanceTable.AModel]
     --print(tMdl.mdl)
@@ -513,10 +544,10 @@ function PANEL:PostInit()
         main.AppearanceTable.AName = self:GetValue()
     end
     function NameEntry:Paint(w, h)
-        draw.RoundedBox(4, 0, 0, w, h, Color(20, 20, 25, 240))
+        draw.RoundedBox(4, 0, 0, w, h, colors.entryBackground)
         surface.SetDrawColor(colors.scrollbarBorder)
         surface.DrawOutlinedRect(0, 0, w, h, 1)
-        self:DrawTextEntryText(colors.mainText, colors.selectionBG, colors.mainText)
+        self:DrawTextEntryText(colors.entryText, colors.selectionBG, colors.entryText)
     end
 
     local presetsPanel = vgui.Create("DPanel", bottomContainer)
@@ -677,10 +708,11 @@ function PANEL:PostInit()
     presetNameEntry:SetContentAlignment(5)
     presetNameEntry:DockMargin(5,0,0,0)
     function presetNameEntry:Paint(w, h)
-        draw.RoundedBox(4, 0, 0, w, h, Color(15, 15, 20, 255))
+        draw.RoundedBox(4, 0, 0, w, h, colors.entryBackground)
         surface.SetDrawColor(colors.scrollbarBorder)
         surface.DrawOutlinedRect(0, 0, w, h, 1)
-        self:DrawTextEntryText(colors.mainText, colors.selectionBG, colors.mainText)
+        local textColor = self:GetValue() == "" and colors.entryPlaceholder or colors.entryText
+        self:DrawTextEntryText(textColor, colors.selectionBG, colors.entryText)
     end
 
     local previewAccessory = {nil, nil, nil}  -- [1] = hat, [2] = face, [3] = body
@@ -711,6 +743,7 @@ function PANEL:PostInit()
     end
     
     function hatSelector:DoClick()
+        main.AppearanceTable = NormalizeAppearanceTable(main.AppearanceTable)
         main.modelPosID = "Head"
         CloseAllAccessoryMenus()
         
@@ -774,6 +807,7 @@ function PANEL:PostInit()
     end
     
     function faceSelector:DoClick()
+        main.AppearanceTable = NormalizeAppearanceTable(main.AppearanceTable)
         main.modelPosID = "Face"
         CloseAllAccessoryMenus()
         
@@ -838,6 +872,7 @@ function PANEL:PostInit()
     bodySelector:SetPos(sizeX * 0.1, sizeY * 0.5)
     
     function bodySelector:DoClick()
+        main.AppearanceTable = NormalizeAppearanceTable(main.AppearanceTable)
         main.modelPosID = "Torso"
         CloseAllAccessoryMenus()
         

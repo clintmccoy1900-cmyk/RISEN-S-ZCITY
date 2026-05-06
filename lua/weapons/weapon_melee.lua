@@ -145,6 +145,7 @@ end
 
 SWEP.modelscale = 1
 SWEP.modelscale2 = 1
+
 if CLIENT then
     function PrintBones( entity )
         for i = 0, entity:GetBoneCount() - 1 do
@@ -183,7 +184,8 @@ if CLIENT then
         if ent:IsNPC() then
 			local RHand = ent:LookupBone("ValveBiped.Bip01_R_Hand")
 			if not RHand then return end
-			local matrixR = ent:GetBoneMatrix(RHand) or ent:GetBoneMatrix(ent:LookupBone("ValveBiped.Bip01_R_Forearm"))
+			local RForearm = ent:LookupBone("ValveBiped.Bip01_R_Forearm")
+			local matrixR = ent:GetBoneMatrix(RHand) or (RForearm and ent:GetBoneMatrix(RForearm) or nil)
 			if not matrixR then 
 				//matrixR = Matrix()
 				//local att = ent:GetAttachment(ent:LookupAttachment("anim_attachment_RH"))
@@ -265,17 +267,13 @@ if CLIENT then
                 WorldModel:SetCycle(timing)
             end
 
-            if WorldModel:GetModel() ~= self.WorldModelReal then WorldModel:SetModel(self.WorldModelReal) end
-            
             local pos, ang = self:ModelAnim(WorldModel)
 
-			WorldModel:SetRenderOrigin(pos)
+            WorldModel:SetRenderOrigin(pos)
 			WorldModel:SetRenderAngles(ang)
             WorldModel:SetPos(pos)
             WorldModel:SetAngles(ang)
 		else
-            if WorldModel:GetModel() ~= self.WorldModel then WorldModel:SetModel(self.WorldModel) end
-			
             WorldModel:SetRenderOrigin(self:GetPos())
 			WorldModel:SetRenderAngles(self:GetAngles())
             WorldModel:SetPos(self:GetPos())
@@ -304,6 +302,7 @@ if CLIENT then
             WorldModel:SetAngles(ang)
 
             local bon = WorldModel:LookupBone("ValveBiped.Bip01_R_Hand")
+            if not bon then return end
             local matW = WorldModel:GetBoneMatrix(bon)
 
             if !matW then return end
@@ -599,9 +598,13 @@ function SWEP:SetHandPos(noset)
 	-- ent:SetupBones()
 
 	self.rhandik = self.setrh and IsValid(owner)//self.setrh
-	self.lhandik = self.setlh and IsValid(owner) and (ply:GetTable().ChatGestureWeight < 0.1) and hg.CanUseLeftHand(ply) and !(owner.suiciding and self.SuicideNoLH)
+	local chatGestureWeight = (ply:GetTable() and ply:GetTable().ChatGestureWeight) or 0
+	self.lhandik = self.setlh and IsValid(owner) and (chatGestureWeight < 0.1) and hg.CanUseLeftHand(ply) and !(owner.suiciding and self.SuicideNoLH)
 
-    local rhmat, lhmat = ent:GetBoneMatrix(ent:LookupBone("ValveBiped.Bip01_R_Hand")), ent:GetBoneMatrix(ent:LookupBone("ValveBiped.Bip01_L_Hand"))
+    local rhBone = ent:LookupBone("ValveBiped.Bip01_R_Hand")
+    local lhBone = ent:LookupBone("ValveBiped.Bip01_L_Hand")
+    local rhmat = rhBone and ent:GetBoneMatrix(rhBone) or nil
+    local lhmat = lhBone and ent:GetBoneMatrix(lhBone) or nil
 
 	ply.rhold = rhmat
 	ply.lhold = lhmat
@@ -637,6 +640,7 @@ function SWEP:SetHandPos(noset)
             local ply_spine_index = ply:LookupBone("ValveBiped.Bip01_Spine4")
             if !ply_spine_index then return end
             local ply_spine_matrix = ply:GetBoneMatrix(ply_spine_index)
+            if !ply_spine_matrix then return end
             local wmpos = ply_spine_matrix:GetTranslation() - ply:EyeAngles():Right() * 5
 
             local tr = {}
@@ -754,7 +758,7 @@ if CLIENT then
 
         mul = math.max( (math.max(math.min(mul,self.MinSensivity or 0.35),0)) - (self.MinSensivity/10) ,0 )
         mul = 1-(mul)
-		if wep.GetBlocking and wep:GetBlocking() then
+		if self.GetBlocking and self:GetBlocking() then
 			mul = math.Clamp(mul * 0.35, 0.2, 1)
 		end
 
@@ -1054,7 +1058,11 @@ function SWEP:CustomThink()
                 local org = owner.organism
                 local ent = hg.GetCurrentCharacter(owner)
                 
-                local ang = ent:GetBoneMatrix(ent:LookupBone("ValveBiped.Bip01_Neck1")):GetAngles()
+                local neckBone = ent:LookupBone("ValveBiped.Bip01_Neck1")
+                if not neckBone then return end
+                local neckMat = ent:GetBoneMatrix(neckBone)
+                if not neckMat then return end
+                local ang = neckMat:GetAngles()
                 local _, ang = LocalToWorld(vector_origin, Angle(0, -60, 0), vector_origin, ang)
                 
                 hg.organism.input_list["arteria"](org, 0, 5, dmgInfo, nil, -ang:Forward())
@@ -1699,8 +1707,9 @@ function SWEP:PlayAnim(anim, time, cycling, callback, reverse, sendtoclient)
 		end
 		return
 	end
-    self.tries = 10
 
+    local mdl = self:GetWM()
+    self.tries = 10
     if self:GetWM():GetModel() ~= self.WorldModelReal then self:GetWM():SetModel(self.WorldModelReal) end
     
     self:GetWM():SetSequence(self.AnimList[anim] or anim)

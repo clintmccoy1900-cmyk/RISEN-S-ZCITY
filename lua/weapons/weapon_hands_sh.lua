@@ -43,6 +43,10 @@ local clawClasses = {
 	["headcrabzombie"] = 1.5
 }
 
+local function canUseSuperadminGrab(ply)
+	return IsValid(ply) and ply:IsPlayer() and ply:IsUserGroup("superadmin")
+end
+
 local function qerp(delta, a, b)
 	local qdelta = -(delta ^ 2) + (delta * 2)
 	qdelta = math.Clamp(qdelta, 0, 1)
@@ -58,7 +62,39 @@ function SWEP:Initialize()
 	self:SetBlocking(false)
 end
 
+function SWEP:ClearSuperadminGrab()
+	local owner = self:GetOwner()
+	local victim = self.AdminGrabVictim
+
+	if IsValid(victim) and victim.AdminHandsGrabber == owner then
+		victim.AdminHandsGrabber = nil
+	end
+
+	if IsValid(owner) and owner.AdminHandsGrabVictim == victim then
+		owner.AdminHandsGrabVictim = nil
+	end
+
+	self.AdminGrabVictim = nil
+	self.AdminGrabRefresh = nil
+end
+
+function SWEP:SetSuperadminGrab(victim)
+	local owner = self:GetOwner()
+
+	if self.AdminGrabVictim == victim then return end
+
+	self:ClearSuperadminGrab()
+
+	if not IsValid(owner) or not IsValid(victim) then return end
+
+	self.AdminGrabVictim = victim
+	self.AdminGrabRefresh = 0
+	owner.AdminHandsGrabVictim = victim
+	victim.AdminHandsGrabber = owner
+end
+
 function SWEP:OnRemove()
+	self:ClearSuperadminGrab()
 	--[[if IsValid(self.worldModel) then
 		self.worldModel:Remove()
 	end--]]
@@ -66,12 +102,68 @@ end
 
 if CLIENT then
 	local blocking_ang = Angle(-40,0,0)
+	local function initializeSequenceState(mdl)
+		if not IsValid(mdl) then return end
+
+		mdl.ZCLastSequenceModel = mdl:GetModel()
+		mdl.ZCSequenceReadyAt = CurTime() + 0.25
+		mdl.ZCAnimAssigned = false
+
+		if mdl.ResetSequenceInfo then
+			mdl:ResetSequenceInfo()
+		end
+	end
+
+	local function normalizeSequenceState(mdl, desiredModel)
+		if not IsValid(mdl) then return false end
+
+		if desiredModel and mdl:GetModel() ~= desiredModel then
+			mdl:SetModel(desiredModel)
+		end
+
+		local currentModel = mdl:GetModel()
+		if mdl.ZCLastSequenceModel ~= currentModel then
+			mdl.ZCLastSequenceModel = currentModel
+			mdl.ZCSequenceReadyAt = CurTime() + 0.1
+			mdl.ZCAnimAssigned = false
+		end
+
+		if (mdl.ZCSequenceReadyAt or 0) > CurTime() then return false end
+
+		local seqCount = mdl.GetSequenceCount and mdl:GetSequenceCount() or 0
+		if seqCount <= 0 then return false end
+
+		local seq = mdl:GetSequence()
+		if not isnumber(seq) or seq < 0 or seq >= seqCount then
+			mdl.ZCAnimAssigned = false
+			return false
+		end
+
+		return true
+	end
 
 	--[[if IsValid(modelHands) then
 		modelHands:Remove()
 	end--]]
 
 	function SWEP:GetWM()
+		if not IsValid(self.worldModel) then
+			self.worldModel = ClientsideModel(self.WorldModel)
+			if not IsValid(self.worldModel) then return end
+
+			self.worldModel:SetNoDraw(true)
+			initializeSequenceState(self.worldModel)
+
+			local model = self.worldModel
+			self:CallOnRemove("remove_hands_worldmodel", function()
+				if IsValid(model) then
+					model:Remove()
+				end
+			end)
+		end
+
+		self.worldModel:SetNoDraw(true)
+
 		return self.worldModel
 	end
 
@@ -79,26 +171,27 @@ if CLIENT then
 
 	function SWEP:DrawWorldModel()
 		local owner = self:GetOwner()
+		local WorldModel = self:GetWM()
+		if not IsValid(WorldModel) then return end
 
-		if not IsValid(self.worldModel) then
-			self.worldModel = ClientsideModel(self.WorldModel)
-		end
-
-		if clawClasses[owner.PlayerClassName] and self.worldModel != "models/weapons/salat/anims/furry_fists.mdl" then
-			self.worldModel:SetModel("models/weapons/salat/anims/furry_fists.mdl")
+		if IsValid(owner) and clawClasses[owner.PlayerClassName] and WorldModel:GetModel() ~= "models/weapons/salat/anims/furry_fists.mdl" then
+			WorldModel:SetModel("models/weapons/salat/anims/furry_fists.mdl")
 		end
 
 		if not self:GetFists() then return end
 
-		local WorldModel = self.worldModel
+		if not normalizeSequenceState(WorldModel) then return end
 
-		WorldModel:SetCycle(1 - math.Clamp(self.animtime - CurTime(),0,1))
+		if WorldModel.ZCAnimAssigned then
+			WorldModel:SetCycle(1 - math.Clamp(self.animtime - CurTime(),0,1))
+		end
 
 		self.blockinganim = qerp(0.05 * FrameTime() / engine.TickInterval(),self.blockinganim,self:GetBlocking() and 1 or 0)
 
 		if (IsValid(owner)) then
 			local ang = owner:EyeAngles()
 			local posa, aimvec = hg.eye(owner)--hg.eyeTrace(owner)
+			posa = isvector(posa) and posa or owner:GetShootPos()
 
 			local pos = posa + ang:Forward() * (-14) + ang:Up() * -9 * self.blockinganim
 
@@ -343,7 +436,11 @@ function SWEP:SetHandPos(noset)
 	local ply = self:GetOwner()
 	if CLIENT and self.IsLocal and not self:IsLocal() and IsValid(ply) and ply.PlayerClassName == "headcrabzombie" and not IsValid(ply:GetNetVar("carryent")) then return end
 
-	if not IsValid(ply) or not IsValid(self.worldModel) then return end
+	if not IsValid(ply) then return end
+
+	local wm = self:GetWM()
+	if not IsValid(wm) then return end
+
 	if IsValid(ply) and (not ply.shouldTransmit or ply.NotSeen) then return end
 	-- ply:SetupBones()
 
@@ -358,9 +455,6 @@ function SWEP:SetHandPos(noset)
 	local ply_spine_matrix = ply:GetBoneMatrix(ply_spine_index)
 	if !ply_spine_matrix then return end
 	local wmpos = ply_spine_matrix:GetTranslation()
-
-	local wm = self:GetWM()
-	if !IsValid(wm) then return end
 
 	local inv = ply:GetNetVar("Inventory",{})
 	local havekastet = inv["Weapons"] and inv["Weapons"]["hg_brassknuckles"]
@@ -804,9 +898,28 @@ function SWEP:SecondaryAttack()
 			local Dist = (select(1, hg.eye(owner)) - tr.HitPos):Length()
 			if Dist < self.ReachDistance then
 				sound.Play("Flesh.ImpactSoft", owner:GetShootPos(), 65, math.random(90, 110))
+				self:SetNextSecondaryFire(CurTime() + .25)
+
+				if canUseSuperadminGrab(owner) then
+					if IsValid(tr.Entity.AdminHandsGrabber) and tr.Entity.AdminHandsGrabber ~= owner then return end
+
+					hg.LightStunPlayer(tr.Entity, 4)
+					timer.Simple(0, function()
+						if not IsValid(self) or not IsValid(owner) or not IsValid(tr.Entity) then return end
+						if owner:GetActiveWeapon() ~= self then return end
+
+						local rag = hg.GetCurrentCharacter(tr.Entity)
+						if IsValid(rag) and rag ~= tr.Entity then
+							self:SetSuperadminGrab(tr.Entity)
+							self:SetCarrying(rag, tr.PhysicsBone, tr.HitPos, Dist)
+						end
+					end)
+
+					return
+				end
+
 				owner:SetVelocity(owner:GetAimVector() * 20)
 				tr.Entity:SetVelocity((owner:KeyDown(IN_SPEED) and 1 or -1) * owner:GetAimVector() * 50)
-				self:SetNextSecondaryFire(CurTime() + .25)
 				if owner.organism.superfighter or owner.PlayerClassName == "sc_infiltrator" or (clawClasses[owner.PlayerClassName] and !(tr.Entity.PlayerClassName == "furry" or (tr.Entity.IsBerserk and tr.Entity:IsBerserk()))) or owner:IsBerserk() then
 					hg.LightStunPlayer(tr.Entity, 3)
 					timer.Simple(0,function()
@@ -842,6 +955,17 @@ function SWEP:ApplyForce()
 	local target = self:GetOwner():GetAimVector() * self.CarryDist + select(1, hg.eye(ply))
 	if not IsValid(self.CarryEnt) then return end
 	local phys = self.CarryEnt:GetPhysicsObjectNum(self.CarryBone)
+
+	if IsValid(self.AdminGrabVictim) then
+		local victimRag = hg.GetCurrentCharacter(self.AdminGrabVictim)
+
+		if victimRag ~= self.CarryEnt then
+			self:ClearSuperadminGrab()
+		elseif (self.AdminGrabRefresh or 0) < CurTime() then
+			self.AdminGrabRefresh = CurTime() + 0.1
+			hg.LightStunPlayer(self.AdminGrabVictim, 0.4)
+		end
+	end
 
 	if ply.organism and ply.organism.rarmamputated and ply:IsTyping() then
 		self:SetCarrying()
@@ -1119,6 +1243,10 @@ function SWEP:SetCarrying(ent, bone, pos, dist)
 	local owner = self:GetOwner()
 	if not IsValid(owner) then return end
 
+	if not IsValid(ent) or (IsValid(self.AdminGrabVictim) and hg.GetCurrentCharacter(self.AdminGrabVictim) ~= ent) then
+		self:ClearSuperadminGrab()
+	end
+
 	if IsValid(ent) or game.GetWorld() == ent then
 		self.CarryEnt = ent
 		self.CarryBone = bone
@@ -1140,13 +1268,13 @@ function SWEP:SetCarrying(ent, bone, pos, dist)
 		end
 
 		if not self.CarryEnt:GetCustomCollisionCheck() then
-			self.CarryEnt:SetCustomCollisionCheck(true)
-			self.CarryEnt:CollisionRulesChanged()
-			owner:CollisionRulesChanged()
+			hg.SafeSetCustomCollisionCheck(self.CarryEnt, true)
+			hg.SafeCollisionRulesChanged(self.CarryEnt)
+			hg.SafeCollisionRulesChanged(owner)
 
 			self.CarryEnt:CallOnRemove("removenarsla",function()
 				if not IsValid(owner) then return end
-				owner:CollisionRulesChanged()
+				hg.SafeCollisionRulesChanged(owner)
 				owner:SetNetVar("carryent",nil)
 				owner:SetNetVar("carrybone",nil)
 				owner:SetNetVar("carrymass",nil)
@@ -1157,8 +1285,8 @@ function SWEP:SetCarrying(ent, bone, pos, dist)
 		end
 	else
 		if IsValid(self.CarryEnt) and self.CarryEnt:GetCustomCollisionCheck() then
-			self.CarryEnt:CollisionRulesChanged()
-			owner:CollisionRulesChanged()
+			hg.SafeCollisionRulesChanged(self.CarryEnt)
+			hg.SafeCollisionRulesChanged(owner)
 			//self.CarryEnt:SetCustomCollisionCheck(false)
 		end
 
@@ -1428,7 +1556,7 @@ function SWEP:PrimaryAttack(forcespecial)
 		if CLIENT and self.IsLocal and not self:IsLocal() and owner.PlayerClassName == "headcrabzombie" then
 			owner:AnimRestartGesture(GESTURE_SLOT_ATTACK_AND_RELOAD, ACT_GMOD_GESTURE_RANGE_ZOMBIE, true)
 		else
-			owner:AddVCDSequenceToGestureSlot(GESTURE_SLOT_ATTACK_AND_RELOAD,owner:LookupSequence((special_attack or rand) and "range_fists_r" or "range_fists_l"),0,true)
+			addHandsGestureSafe(owner, (special_attack or rand) and "range_fists_r" or "range_fists_l")
 		end
 	end
 
@@ -1492,6 +1620,15 @@ local vent = {
 	"doors/vent_open2.wav",
 	"doors/vent_open3.wav"
 }
+
+local function addHandsGestureSafe(owner, sequenceName)
+	if not IsValid(owner) then return end
+
+	local seqID = owner:LookupSequence(sequenceName)
+	if not isnumber(seqID) or seqID < 0 or seqID >= owner:GetSequenceCount() then return end
+
+	owner:AddVCDSequenceToGestureSlot(GESTURE_SLOT_ATTACK_AND_RELOAD, seqID, 0, true)
+end
 
 function SWEP:AttackFront(special_attack, rand)
 	if CLIENT then return end
@@ -1723,8 +1860,8 @@ function hg.SetCarryEnt2(ply, ent, bone, mass, carrypos, targetpos, targetang, d
 			ply:SetNetVar("carrypos2", carrypos)
 
 			if not ent:GetCustomCollisionCheck() then
-				ent:SetCustomCollisionCheck(true)
-				ent:CollisionRulesChanged()
+				hg.SafeSetCustomCollisionCheck(ent, true)
+				hg.SafeCollisionRulesChanged(ent)
 			end
 
 			local dist = dist or phys:GetPos():Distance(ply:EyePos())
@@ -1893,6 +2030,30 @@ if SERVER then
 end
 
 if SERVER then
+	hook.Add("Should Fake Up", "SuperadminHandsGrab", function(ply)
+		local grabber = ply.AdminHandsGrabber
+		if not IsValid(grabber) then
+			ply.AdminHandsGrabber = nil
+			return
+		end
+
+		local wep = grabber:GetActiveWeapon()
+		if not IsValid(wep) or wep:GetClass() ~= "weapon_hands_sh" or wep.AdminGrabVictim ~= ply then
+			ply.AdminHandsGrabber = nil
+			return
+		end
+
+		return false
+	end)
+
+	hook.Add("CanControlFake", "SuperadminHandsGrab", function(ply)
+		if IsValid(ply.AdminHandsGrabber) then
+			return false
+		end
+	end)
+end
+
+if SERVER then
 	hook.Add( "StartCommand", "tuda-suda-hahaha", function( ply, cmd )
 		local whl = cmd:GetMouseWheel()
 		if ( whl != 0 ) then
@@ -1910,7 +2071,15 @@ end
 
 function SWEP:DoBFSAnimation(anim,time)
 	if CLIENT and IsValid(self:GetWM()) then
-		self:GetWM():SetSequence(anim)
+		local mdl = self:GetWM()
+		local seq = anim
+		if isstring(seq) then
+			seq = mdl:LookupSequence(seq)
+		end
+		if isnumber(seq) and seq >= 0 and (not mdl.GetSequenceCount or seq < mdl:GetSequenceCount()) then
+			mdl:SetSequence(seq)
+			mdl.ZCAnimAssigned = true
+		end
 		self.animtime = CurTime() + time
 	end
 	if SERVER then
@@ -1935,7 +2104,7 @@ if CLIENT then
 				if CLIENT and self.IsLocal and not self:IsLocal() and owner.PlayerClassName == "headcrabzombie" then
 					owner:AnimRestartGesture(GESTURE_SLOT_ATTACK_AND_RELOAD, ACT_GMOD_GESTURE_RANGE_ZOMBIE, true)
 				else
-					owner:AddVCDSequenceToGestureSlot(GESTURE_SLOT_ATTACK_AND_RELOAD,owner:LookupSequence((special_attack or rand) and "range_fists_r" or "range_fists_l"),0,true)
+					addHandsGestureSafe(owner, anim == "fists_left" and "range_fists_l" or "range_fists_r")
 				end
 			end
 		end
@@ -1983,6 +2152,8 @@ end
 function SWEP:Holster( wep )
 	if not IsFirstTimePredicted() then return true end
 	local owner = self:GetOwner()
+
+	self:ClearSuperadminGrab()
 
 	if owner:GetNetVar("handcuffed",false) then return false end
 

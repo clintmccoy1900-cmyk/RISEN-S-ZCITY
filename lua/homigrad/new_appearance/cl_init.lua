@@ -5,6 +5,46 @@ hg.Appearance = hg.Appearance or {}
 hg.Appearance.SelectedAppearance = ConVarExists("hg_appearance_selected") and GetConVar("hg_appearance_selected") or CreateClientConVar("hg_appearance_selected","main",true,false,"name of selected appearance json file")
 hg.Appearance.ForcedRandom = ConVarExists("hg_appearance_force_random") and GetConVar("hg_appearance_force_random") or CreateClientConVar("hg_appearance_force_random","0",true,false,"forced appearance random",0,1)
 
+local permamodelConVars = {
+	"cl_playermodel",
+	"cl_playerskin",
+	"cl_playerbodygroups",
+	"cl_playercolor",
+	"cl_weaponcolor"
+}
+
+local function SendPermamodelConfig()
+	net.Start("ZC_SendPermamodelConfig")
+		net.WriteTable({
+			model = GetConVarString("cl_playermodel"),
+			skin = GetConVarString("cl_playerskin"),
+			bodygroups = GetConVarString("cl_playerbodygroups"),
+			playerColor = GetConVarString("cl_playercolor"),
+			weaponColor = GetConVarString("cl_weaponcolor")
+		})
+	net.SendToServer()
+end
+
+net.Receive("ZC_RequestPermamodelConfig", SendPermamodelConfig)
+
+hook.Add("InitPostEntity", "ZC_Permamodel_SendConfig", function()
+	timer.Simple(1, function()
+		if not IsValid(LocalPlayer()) then return end
+
+		SendPermamodelConfig()
+	end)
+end)
+
+for _, convarName in ipairs(permamodelConVars) do
+	cvars.AddChangeCallback(convarName, function()
+		timer.Create("ZC_Permamodel_SendConfigDebounce", 0.1, 1, function()
+			if not IsValid(LocalPlayer()) then return end
+
+			SendPermamodelConfig()
+		end)
+	end, "ZC_Permamodel_" .. convarName)
+end
+
 local dir = "zcity/appearances/"
 function hg.Appearance.CreateAppearanceFile(strFile_name, tblAppearance)
 	file.CreateDir(dir)
@@ -12,12 +52,24 @@ function hg.Appearance.CreateAppearanceFile(strFile_name, tblAppearance)
 end
 
 function hg.Appearance.LoadAppearanceFile(strFile_name)
-	if not file.Exists(dir .. strFile_name .. ".json", "DATA") then return false end
-	local tblAppearance = util.JSONToTable(file.Read(dir .. strFile_name .. ".json"))
+	local path = dir .. strFile_name .. ".json"
+	if not file.Exists(path, "DATA") then return false, "file not found [data/" .. path .. "]" end
 
-	if not hg.Appearance.AppearanceValidater(tblAppearance) then return false, "file is damaged [data/zcity/appearances/" .. strFile_name .. ".json]"  end
+	local rawAppearance = file.Read(path, "DATA")
+	if not rawAppearance or rawAppearance == "" then return false, "file is empty or unreadable [data/" .. path .. "]" end
+
+	local tblAppearance = util.JSONToTable(rawAppearance)
+
+	if not hg.Appearance.AppearanceValidater(tblAppearance) then return false, "file is damaged [data/" .. path .. "]" end
 
 	return tblAppearance
+end
+
+local function PrintAppearanceLoadError(reason)
+	local ply = LocalPlayer()
+	if not IsValid(ply) then return end
+
+	print("[Appearance] file load failed - " .. (reason or "unknown error"))
 end
 
 function hg.Appearance.GetAppearanceList()
@@ -39,7 +91,7 @@ net.Receive("Get_Appearance", function()
         net.WriteBool(not tbl)
     net.SendToServer()
 
-	if not tbl and not forced_random and reason then lply:ChatPrint("[Appearance] file load failed - " .. reason) end
+	if not tbl and not forced_random then PrintAppearanceLoadError(reason) end
 end)
 
 local function OnlyGetAppearance()
@@ -55,10 +107,18 @@ local function OnlyGetAppearance()
 
     net.SendToServer()
 
-	if not tbl and not forced_random and reason then lply:ChatPrint("[Appearance] file load failed - " .. reason) end
+	if not tbl and not forced_random and reason then print("[Appearance] file load failed - " .. reason) end
 end
 
 net.Receive("OnlyGet_Appearance", OnlyGetAppearance)
+
+hook.Add("InitPostEntity", "ZC_Appearance_SendInitialSelection", function()
+	timer.Simple(1, function()
+		if not IsValid(LocalPlayer()) then return end
+
+		OnlyGetAppearance()
+	end)
+end)
 
 -- Render things
 
@@ -74,6 +134,30 @@ local whitelist = {
 local islply
 
 local hg_firstperson_death = ConVarExists("hg_firstperson_death") and GetConVar("hg_firstperson_death") or CreateClientConVar("hg_firstperson_death", "0", "first person death", true, false, 0, 1)
+
+local function IsShadowCamouflageActiveOnEnt(ent, ply)
+	if IsValid(ent) and ent.GetNWBool and ent:GetNWBool("HMCD_ShadowCamouflageActive", false) then
+		return true
+	end
+
+	if IsValid(ply) and ply.GetNWBool and ply:GetNWBool("HMCD_ShadowCamouflageActive", false) then
+		return true
+	end
+
+	return false
+end
+
+local function ClearAccessoryModels(ent)
+	if not IsValid(ent) or not ent.modelAccess then return end
+
+	for key, model in pairs(ent.modelAccess) do
+		if IsValid(model) then
+			model:Remove()
+		end
+
+		ent.modelAccess[key] = nil
+	end
+end
 
 function RenderAccessories(ply, accessories, setup)
 
@@ -91,25 +175,18 @@ function RenderAccessories(ply, accessories, setup)
 	local fountains = GetNetVar("fountains") or {}
 	if ent == follow and hg_firstperson_death:GetBool() and !fountains[ent] then islply = true end
 
+	if IsShadowCamouflageActiveOnEnt(ent, ply) then
+		ClearAccessoryModels(ent)
+		return
+	end
+
 	if islply and IsValid(wep) and whitelist[wep:GetClass()] then
-		if not ent.modelAccess then return end
-		for k,v in ipairs(ent.modelAccess) do
-			if IsValid(v) then
-				v:Remove()
-				v = nil
-			end
-		end
+		ClearAccessoryModels(ent)
 		return
 	end
 
 	if not ent.shouldTransmit or ent.NotSeen then
-		if not ent.modelAccess then return end
-		for k,v in ipairs(ent.modelAccess) do
-			if IsValid(v) then
-				v:Remove()
-				v = nil
-			end
-		end
+		ClearAccessoryModels(ent)
 		return
 	end
 
@@ -254,6 +331,18 @@ function DrawAppearance(ent, ply, setup)
 	if setup then return end
 	
 	if not ply:IsPlayer() then return end
+
+	if IsShadowCamouflageActiveOnEnt(ent, ply) then
+		if ply.flashlight then
+			ply.flashlight:Remove()
+			ply.flashlight = nil
+		end
+		if ply.flmodel then
+			ply.flmodel:Remove()
+			ply.flmodel = nil
+		end
+		return
+	end
 	
 	local inv = ply:GetNetVar("Inventory",{})
 	if not inv["Weapons"] or not inv["Weapons"]["hg_flashlight"] then

@@ -409,6 +409,7 @@ hook.Add("Player Think", "homigrad-dropholstered", function(ply)
 	if (ply.thinkdropwep or 0) > CurTime() then return end
 	ply.thinkdropwep = CurTime() + 0.1
 	if ply.organism and ply.organism.allowholster then return end
+	if ply.IsUserGroup and ply:IsUserGroup("superadmin") then return end
 
 	local activewep = ply:GetActiveWeapon()
 	local weps = ply:GetWeapons()
@@ -869,7 +870,6 @@ hook.Add( "OnEntityCreated", "VechicleChairs", function( ent )
 			
 			ent:SetModel("models/props_junk/PopCan01a.mdl")
 			ent:SetAngles(ent:LocalToWorldAngles(UwU and Angle(0, -1, 0) or Angle(0,90,0)))
-			ent:SetPos(ent:GetPos() + vector_up * 3 + ent:GetAngles():Forward() * 5)
 		end
 	end)
 	
@@ -1504,7 +1504,8 @@ end
 
 hook.Add( "AcceptInput", "StealthOpenDoors", function( ent, inp, act, ply, val )
 	if inp == "Use" and ent:SDOIsDoor() then
-		local func = ((ply:KeyDown( IN_SPEED ) and "FastOpenDoor") or ( ply:KeyDown( IN_WALK ) and "StealthOpenDoor") or "NormalOpenDoor")
+		local validPly = IsValid(ply) and ply:IsPlayer()
+		local func = ((validPly and ply:KeyDown( IN_SPEED ) and "FastOpenDoor") or ( validPly and ply:KeyDown( IN_WALK ) and "StealthOpenDoor") or "NormalOpenDoor")
 		ent[func](ent,ply)
 		if ent:GetInternalVariable( "slavename" ) then
 			for k,v in pairs( ents.FindByName( ent:GetInternalVariable( "slavename" ) ) ) do
@@ -1525,16 +1526,14 @@ end )
 
 hook.Add("PlayerUse", "DoorClose", function(ply, ent)
 	local getdoor = ply:GetUseEntity()
-	if string_find(tostring(getdoor), "prop_door_rotating") and getdoor:GetInternalVariable("m_eDoorState") == 2 then
+	if IsValid(getdoor) and getdoor:SDOIsDoor() and DoorIsOpen2(getdoor) then
 		if getdoor:GetInternalVariable("m_hMaster") != NULL then
 			getdoor:GetInternalVariable("m_hMaster"):Fire("close")
 			hg.RunZManipAnim(ply, "door_open_back", nil, 2, {self})
-
 			return false
 		else
 			getdoor:Fire("close")
 			hg.RunZManipAnim(ply, "door_open_back", nil, 2, {self})
-
 			return false
 		end
 	end	

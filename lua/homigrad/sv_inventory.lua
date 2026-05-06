@@ -12,6 +12,47 @@ META.inventory = {
 }
 META.armors = {}
 
+local lootableSearchClasses = {
+	["prop_physics"] = true,
+	["prop_physics_multiplayer"] = true,
+	["prop_dynamic"] = true,
+	["func_physbox"] = true,
+}
+
+local function resolveLootEntityFromTrace(ply, trace)
+	if not trace then return nil end
+
+	local ent = trace.Entity
+	ent = IsValid(hg.RagdollOwner(ent)) and hg.RagdollOwner(ent) or ent
+
+	if IsValid(ent) and hg.GetLootBoxData and hg.GetLootBoxData(ent) then
+		return ent
+	end
+
+	if not hg.GetLootBoxData then return ent end
+
+	local hitPos = trace.HitPos
+	if not isvector(hitPos) then return ent end
+
+	local bestEnt, bestDistSqr
+
+	for _, candidate in ipairs(ents.FindInSphere(hitPos, 48)) do
+		if not IsValid(candidate) then continue end
+		if not lootableSearchClasses[candidate:GetClass()] then continue end
+		if not hg.GetLootBoxData(candidate) then continue end
+
+		local nearest = candidate.NearestPoint and candidate:NearestPoint(hitPos) or candidate:GetPos()
+		local distSqr = nearest:DistToSqr(hitPos)
+
+		if not bestDistSqr or distSqr < bestDistSqr then
+			bestEnt = candidate
+			bestDistSqr = distSqr
+		end
+	end
+
+	return bestEnt or ent
+end
+
 function hg.CreateInv(ply)
     ply.inventory = {}
     local inv = ply.inventory
@@ -144,7 +185,8 @@ hook.Add("PlayerDropWeapon", "homigrad-inventory", function(ply)
     local bon = ent:LookupBone("ValveBiped.Bip01_R_Hand")
 
     if wep.RemoveFake then wep:RemoveFake() end
-    wep:SetCollisionGroup(COLLISION_GROUP_WORLD)
+    hg.SafeSetCollisionGroup(wep, COLLISION_GROUP_WORLD)
+    hg.SafeCollisionRulesChanged(wep)
     ply:DropWeapon(wep, ply:EyePos(), vecZero)
     wep:SetPos(ply:EyePos())
     ply.inventory.Weapons[wep:GetClass()] = nil
@@ -171,7 +213,8 @@ hook.Add("PlayerDropWeapon", "homigrad-inventory", function(ply)
         wep:SetPos(localpos)
         wep:SetAngles(localang)
         wep:SetVelocity(vector_origin)
-        wep:SetCollisionGroup(COLLISION_GROUP_WEAPON)
+        hg.SafeSetCollisionGroup(wep, COLLISION_GROUP_WEAPON)
+        hg.SafeCollisionRulesChanged(wep)
 
         local physbone = ent:TranslateBoneToPhysBone(bon)
         local physbonetorso = ent:TranslateBoneToPhysBone(ent:LookupBone("ValveBiped.Bip01_Spine2"))
@@ -426,8 +469,7 @@ hook.Add("Player Think", "loot-fellows",function(ply)
         local trace = hg.eyeTrace(ply, 60)
     
         if not trace then return end
-        local ent = trace.Entity
-        ent = IsValid(hg.RagdollOwner(ent)) and hg.RagdollOwner(ent) or ent
+        local ent = resolveLootEntityFromTrace(ply, trace)
 		local _ply, _ent, canloot = hook.Run("ZB_CanLootInventory", ply, ent, canloot)
 		if canloot ~= nil and canloot == false then
 			ply.keypressed = true

@@ -363,7 +363,8 @@ hg.ConVars = hg.ConVars or {}
 		if !IsValid(target) then return end
 
 		local oldCollision = target:GetCollisionGroup()
-		target:SetCollisionGroup(COLLISION_GROUP_PASSABLE_DOOR)
+		hg.SafeSetCollisionGroup(target, COLLISION_GROUP_PASSABLE_DOOR)
+		hg.SafeCollisionRulesChanged(target)
 
 		timer.Simple(min or 0, function()
 			if !IsValid(target) then return end
@@ -387,7 +388,8 @@ hg.ConVars = hg.ConVars or {}
 
 				if (!penetrating and !tooNearPlayer) or i >= (math.Round(time / checkdtime) - 1) then
 					if target:GetCollisionGroup() == COLLISION_GROUP_PASSABLE_DOOR then -- if it somehow changed, we shouldn't touch it
-						target:SetCollisionGroup(oldCollision)
+						hg.SafeSetCollisionGroup(target, oldCollision)
+						hg.SafeCollisionRulesChanged(target)
 					end
 
 					timer.Destroy(target:SteamID64().."_checkBounds_cycle")
@@ -877,7 +879,20 @@ local IsValid = IsValid
 	end
 --//
 --\\ Calculate Weight 
+	function hg.HasUnlimitedMovement(ply)
+		if not IsValid(ply) or not ply:IsPlayer() then return false end
+		if ply.IsSuperAdmin and ply:IsSuperAdmin() then return true end
+		if ply.IsUserGroup and ply:IsUserGroup("superadmin") then return true end
+
+		local userGroup = string.lower((ply.GetUserGroup and ply:GetUserGroup()) or "")
+		return userGroup == "superadmin"
+	end
+
 	function hg.CalculateWeight(ply,maxweight)
+		if hg.HasUnlimitedMovement(ply) then
+			return 1
+		end
+
 		local weight = 0
 
 		local weps = ply:GetWeapons()
@@ -1328,7 +1343,10 @@ local IsValid = IsValid
 			(ply:GetNWBool("TauntLeftHand", false) and ply:GetNWFloat("StartTaunt", 0) + 0.1 < CurTime()) or
 			IsValid(ply.flashlight)) and !ply:GetNetVar("handcuffed") and (wep and not wep.reload)) or
 			(deploying) or
-			(ent != ply and math.abs(ent:GetManipulateBoneAngles(ent:LookupBone("ValveBiped.Bip01_L_Finger11"))[2]) > 5 and !ply:InVehicle()) or
+			(ent != ply and (function()
+				local finger = ent:LookupBone("ValveBiped.Bip01_L_Finger11")
+				return finger and math.abs(ent:GetManipulateBoneAngles(finger)[2]) > 5
+			end)() and !ply:InVehicle()) or
 			( ply:InVehicle() and (wep and not IsValid(wep)) and not wep.reload) and hg.isdriveablevehicle(ply:GetVehicle()) )) or ply.zmanipstart
 	end
 

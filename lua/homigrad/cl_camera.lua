@@ -89,6 +89,69 @@ local velocityAddVel = Vector()
 local walkLerped = 0
 local walkTime = 0
 
+local function cachedCameraBone(ent, boneName)
+	if not IsValid(ent) then return nil end
+
+	local model = ent:GetModel()
+	if ent.ZCCameraBoneCacheModel ~= model then
+		ent.ZCCameraBoneCacheModel = model
+		ent.ZCCameraBoneCache = {}
+	end
+
+	local cache = ent.ZCCameraBoneCache
+	local bone = cache[boneName]
+	if bone == nil then
+		bone = ent:LookupBone(boneName) or false
+		cache[boneName] = bone
+	end
+
+	return bone ~= false and bone or nil
+end
+
+local function cachedCameraAttachment(ent, attachmentName)
+	if not IsValid(ent) then return nil end
+
+	local model = ent:GetModel()
+	if ent.ZCCameraAttachmentCacheModel ~= model then
+		ent.ZCCameraAttachmentCacheModel = model
+		ent.ZCCameraAttachmentCache = {}
+	end
+
+	local cache = ent.ZCCameraAttachmentCache
+	local attachment = cache[attachmentName]
+	if attachment == nil then
+		attachment = ent:LookupAttachment(attachmentName) or 0
+		cache[attachmentName] = attachment
+	end
+
+	return attachment > 0 and attachment or nil
+end
+
+local function getCachedAttachmentData(ent, attachmentName)
+	local attachment = cachedCameraAttachment(ent, attachmentName)
+	if not attachment then return nil end
+
+	return ent:GetAttachment(attachment)
+end
+
+local function isVortigauntModel(ent)
+	return IsValid(ent) and string.lower(ent:GetModel() or "") == "models/player/vortigaunt.mdl"
+end
+
+local function getPreferredEyeAttachment(ent)
+	local eye = getCachedAttachmentData(ent, "eyes")
+	if not eye or not istable(eye) then return nil end
+
+	if not isVortigauntModel(ent) then
+		return eye
+	end
+
+	return {
+		Pos = eye.Pos + eye.Ang:Forward() * 3 + eye.Ang:Up() * 3 + eye.Ang:Right() * 0,
+		Ang = eye.Ang
+	}
+end
+
 local lerped_ang = Angle(0,0,0)
 function HGAddView(ply, origin, angles, velLen)
 	if ply:Alive() then
@@ -115,10 +178,20 @@ function HGAddView(ply, origin, angles, velLen)
 		camera_position_addition[2] = 0
 		camera_position_addition[3] = (math.sin(breathing_amount + math.pi)) * 0.5
 
-		local anga2 = ply:GetBoneMatrix(ply:LookupBone("ValveBiped.Bip01_Spine")):GetAngles()---(-angles)
-		anga2:RotateAroundAxis(anga2:Right(), 90)
-		--anga2[1] = 0
-		camera_position_addition:Rotate(anga2)
+		local spineBone = ply.ZCSpineBoneCamera
+		if spineBone == nil then
+			spineBone = ply:LookupBone("ValveBiped.Bip01_Spine")
+			ply.ZCSpineBoneCamera = spineBone or false
+		end
+
+		if spineBone and spineBone ~= false then
+			local spineMatrix = ply:GetBoneMatrix(spineBone)
+			if spineMatrix then
+				local anga2 = spineMatrix:GetAngles()
+				anga2:RotateAroundAxis(anga2:Right(), 90)
+				camera_position_addition:Rotate(anga2)
+			end
+		end
 
 		origin:Add(camera_position_addition)
 
@@ -281,7 +354,8 @@ end)
 function SpecCam(ply, vec, ang, fov, znear, zfar)
 	if !ply:Alive() then return end
 	--local hand = ply:GetAttachment(ply:LookupAttachment("anim_attachment_rh"))
-	local eye = ply:GetAttachment(ply:LookupAttachment("eyes"))
+	local eye = getPreferredEyeAttachment(ply)
+	if not eye then return end
 	--local org = eye.Pos
 	local ang1 = eye.Ang + Angle(5, 2, 0)
 	local org1 = eye.Pos + eye.Ang:Up() * 6 + eye.Ang:Forward() * -3 + eye.Ang:Right() * 6.5
@@ -313,6 +387,13 @@ CalcView = function(ply, origin, angles, fov, znear, zfar)
 	}
 
 	if drive.CalcView(ply, view) then return view end
+
+	if not RENDERSCENE and Glide and Glide.AdminThirdperson and Glide.AdminThirdperson.GetClientView then
+		local glideThirdpersonView = Glide.AdminThirdperson.GetClientView(ply, origin, angles, fov, znear, zfar)
+		if glideThirdpersonView ~= nil then
+			return glideThirdpersonView
+		end
+	end
 
 	local rlEnt = hg.GetCurrentCharacter(ply)
 	lerpfovadd = LerpFT(0.01, lerpfovadd, (ply:IsSprinting() and rlEnt == ply and rlEnt:GetVelocity():LengthSqr() > 1500 and 10 or 0) - ( ply.organism and (ply.organism and (((ply.organism.immobilization or 0) / 4) - (ply.organism.adrenaline or 0) * 5 - (ply.organism.noradrenaline or 0) * 15)) or 0) / 2 - (ply.suiciding and (ply:GetNetVar("suicide_time",CurTime()) < CurTime()) and (1 - math.max(ply:GetNetVar("suicide_time",CurTime()) + 8 - CurTime(),0) / 8) * 20 or 0))
@@ -360,7 +441,7 @@ CalcView = function(ply, origin, angles, fov, znear, zfar)
 		end
 	end
 
-	if not IsValid(ply) or not ply.LookupBone or not ply:LookupBone("ValveBiped.Bip01_Head1") then return end
+	if not IsValid(ply) or not ply.LookupBone then return end
 	
 	if not ply.GetAimVector then return end
 
@@ -371,7 +452,7 @@ CalcView = function(ply, origin, angles, fov, znear, zfar)
 	
 	if not firstPerson then return end
 	
-	att = ply:GetAttachment(ply:LookupAttachment("eyes"))
+	att = getPreferredEyeAttachment(ply)
 	if not att or not istable(att) then return end
 	
 	--ply:SetupBones()
@@ -379,7 +460,7 @@ CalcView = function(ply, origin, angles, fov, znear, zfar)
 	--ply:DrawModel()
 	--selfdraw = nil
 	//hg.DoTPIK(lply, lply)
-	local tr, hullcheck, headm = hg.eyeTrace(ply, 10, ply, att.Ang)
+	local tr, hullcheck, headm = hg.eyeTrace(ply, 10, ply, att.Ang, att.Pos)
 	
 	--[[if hg_realismcam:GetBool() and ishgweapon(ply:GetActiveWeapon()) then
 		tr = hg.torsoTrace(ply)
@@ -547,10 +628,6 @@ CalcView = function(ply, origin, angles, fov, znear, zfar)
 
 	wep = ply:GetActiveWeapon()
 	if IsValid(wep) and whitelist[wep:GetClass()] then return end
-	result = hook_Run("PostPostHGCalcView", ply, view)
-	if result then
-		return result
-	end
 
 	return view
 end
@@ -564,9 +641,12 @@ function hg.cam_things(ply, view, angles)
 	eyeAngs[3] = 0
 	local oldviewa = oldview or view
 	local ent = hg.GetCurrentCharacter(ply)
-	if not ent:LookupBone("ValveBiped.Bip01_Spine") then return end
-	if not ent:GetBoneMatrix(ent:LookupBone("ValveBiped.Bip01_Spine")) then return end
-	local torso = ent:GetBoneMatrix(ent:LookupBone("ValveBiped.Bip01_Spine")):GetAngles()
+	if not IsValid(ent) then return end
+	local spineBone = cachedCameraBone(ent, "ValveBiped.Bip01_Spine")
+	if not spineBone then return end
+	local spineMatrix = ent:GetBoneMatrix(spineBone)
+	if not spineMatrix then return end
+	local torso = spineMatrix:GetAngles()
 	--local oldorigin = originnew or ply:EyePos()
 	oldviewa = not ply:Alive() and view or oldviewa
 	
@@ -705,15 +785,17 @@ local mapswithfog = { -- Надо от сервер сайда сделать...
 --GlobalRenderOverideTickOFF = true
 local zfar = mapswithfog[game.GetMap()] or 0
 local map = game.GetMap()
-local render_RenderView
 local scrw,scrh = ScrW(),ScrH()
 local entmeta = FindMetaTable("Entity")
 local eyepos = entmeta.EyePos
 local eyeangles = entmeta.EyeAngles
 local fLPly = LocalPlayer
 local IsValid = IsValid
+local renderSceneActive = false
 local function renderscene(pos, angle, fov)
+	if renderSceneActive or RENDERSCENE then return end
 	lply = IsValid(lply) and lply or fLPly()
+	if not IsValid(lply) then return end
 	
 	pos = eyepos(lply)
 	angle = eyeangles(lply)
@@ -721,11 +803,14 @@ local function renderscene(pos, angle, fov)
 	viewOverride = view
 	
 	local invert = invertCam:GetBool()
+	local oldrt
 	
-	RENDERSCENE = nil
 	if not view then return end
+	if not isvector(view.origin) or not isangle(view.angles) then return end
+	renderSceneActive = true
+	RENDERSCENE = true
 	if invert then
-		local oldrt = render.GetRenderTarget()
+		oldrt = render.GetRenderTarget()
 		render.SetRenderTarget( fliprt )
 	end
 
@@ -743,13 +828,7 @@ local function renderscene(pos, angle, fov)
 	//if cur == lply then hg.renderOverride(cur, lply) end
 
 	lply.norender = true
-	
-	if not render_RenderView then render_RenderView = render.RenderView return end
-	if not isvector(view.origin) or not isangle(view.angles) then return end
-	--if GlobalRenderOverideTickOFF then GlobalRenderOverideTickOFF = nil return end
-	--lply:DrawModel()
-
-	render_RenderView(renderView)
+	local ok, result = pcall(render_RenderView, renderView)
 	lply.norender = nil
 	
 	if invert then
@@ -757,6 +836,14 @@ local function renderscene(pos, angle, fov)
 		fliprtmat:SetTexture( "$basetexture", fliprt )
 		render.SetMaterial( fliprtmat )
 		render.DrawScreenQuad()
+	end
+
+	RENDERSCENE = nil
+	renderSceneActive = false
+
+	if not ok then
+		ErrorNoHalt("[cl_camera] RenderScene RenderView failed: " .. tostring(result) .. "\n")
+		return
 	end
 
 	return true

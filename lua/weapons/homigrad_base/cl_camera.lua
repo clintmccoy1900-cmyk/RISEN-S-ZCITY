@@ -99,7 +99,9 @@ function SWEP:GetZoomPos(recoilZoomPos, view, eyePos)
 		if self:HasAttachment("sight","optic") then
 			posZoom = posZoom - recoilZoomPos * 0.25 - ang2:Forward() * (self.AdditionalPos2[1]) * 0.5 + ang2:Forward() * 1
 		else
-			local _, hitpos, dist = util.DistanceToLine(posZoom, posZoom + (self:GetOwner():GetAimVector()), eyePos)
+			local owner = self:GetOwner()
+			local aimForward = IsValid(owner) and owner.GetAimVector and owner:GetAimVector() or view.angles:Forward()
+			local _, hitpos, dist = util.DistanceToLine(posZoom, posZoom + aimForward, eyePos)
 			dist = dist - 1
 			posZoom = posZoom + ang2:Forward() * dist - recoilZoomPos * 0.5
 		end
@@ -182,8 +184,9 @@ function SWEP:Camera(eyePos, eyeAng, view, vellen, ply)
 	--print(self:GetNetVar("shootgunReload", 0))
 	local posZoom, angPos = self:GetZoomPos(recoilZoomPos, view, eyePos)
 	
-	local inpain = ply.organism and ply.organism.pain and ply.organism.pain > 50
-	local painmul = 0.5 - math.Clamp((((ply.organism.pain or 0) - 50) / 50), 0, 0.5)
+	local org = ply.organism or {}
+	local inpain = org.pain and org.pain > 50
+	local painmul = 0.5 - math.Clamp((((org.pain or 0) - 50) / 50), 0, 0.5)
 	
 	painmul = painmul * 2
 	--local noZoomHelmet = (ply.armors and (not ply.armors["head"] or not hg.armor.head[ply.armors["head"]] or not hg.armor.head[ply.armors["head"]].cantsight or self:IsPistolHoldType()))

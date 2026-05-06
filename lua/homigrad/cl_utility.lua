@@ -118,6 +118,20 @@ hg.ConVars = hg.ConVars or {}
 --\\ Remove cl models on cleanup
 	hg.oldClientsideModel = hg.oldClientsideModel or ClientsideModel
 	hg.ClientsideModels = hg.ClientsideModels or {}
+	local EntityMeta = FindMetaTable("Entity")
+
+	if hg.ZCClientsideModelGuardsInstalled then
+		if hg.oldEntitySetModel then
+			EntityMeta.SetModel = hg.oldEntitySetModel
+		end
+		if hg.oldEntitySetSequence then
+			EntityMeta.SetSequence = hg.oldEntitySetSequence
+		end
+		if hg.oldEntitySetCycle then
+			EntityMeta.SetCycle = hg.oldEntitySetCycle
+		end
+		hg.ZCClientsideModelGuardsInstalled = nil
+	end
 
 	function ClientsideModel(...)
 		local model = hg.oldClientsideModel(...)
@@ -697,7 +711,6 @@ players : 1 humans, 0 bots (20 max)
 			ply:SetVoiceVolumeScale(!hg.muteall and (!hg.mutespect or ply:Alive()) and (hg.playerInfo[ply:SteamID()] and hg.playerInfo[ply:SteamID()][2] or 1) or 0)
 
 			if not ply:Alive() then return end
-			
 			local ent = IsValid(ply.FakeRagdoll) and ply.FakeRagdoll or ply
 			
 			if ply:VoiceVolume() != 0 then

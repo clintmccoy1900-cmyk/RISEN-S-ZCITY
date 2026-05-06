@@ -1,12 +1,102 @@
 MODE.name = "tdm"
 
 local MODE = MODE
+local MusicVolume = GetConVar("snd_musicvolume")
+local tdmThemeStation
+
+local function StopTDMTheme()
+	if IsValid(tdmThemeStation) then
+		tdmThemeStation:Stop()
+	end
+
+	tdmThemeStation = nil
+end
+
+local function GetTDMThemePath(round)
+	local themePath = round and round.ThemeMusicFile
+	if not themePath or themePath == "" then return nil end
+
+	if string.StartWith(themePath, "sound/") then
+		return themePath
+	end
+
+	return "sound/" .. themePath
+end
+
+local function StartTDMTheme(round)
+	local themePath = GetTDMThemePath(round)
+	if not themePath then return false end
+
+	local expectedRoundName = round.name
+	StopTDMTheme()
+
+	sound.PlayFile(themePath, "noblock noplay", function(station, errCode, errStr)
+		if not IsValid(station) then
+			print(errCode, errStr)
+
+			local currentRound = CurrentRound()
+			if currentRound and currentRound.name == expectedRoundName and hg.DynaMusic then
+				hg.DynaMusic:Start("swat4")
+			end
+
+			return
+		end
+
+		local currentRound = CurrentRound()
+		if not currentRound or currentRound.name != expectedRoundName then
+			station:Stop()
+			return
+		end
+
+		if hg.DynaMusic then
+			hg.DynaMusic:Stop()
+		end
+
+		tdmThemeStation = station
+		station:EnableLooping(true)
+		station:SetVolume((round.ThemeMusicVolume or 0.35) * ((MusicVolume and MusicVolume:GetFloat()) or 1))
+		station:Play()
+	end)
+
+	return true
+end
 
 net.Receive("tdm_start",function()
     surface.PlaySound("csgo_round.wav")
 	zb.rtype = net.ReadString()
-	hg.DynaMusic:Start( "swat4" )
+
+	local round = CurrentRound() or MODE
+	if not StartTDMTheme(round) and hg.DynaMusic then
+		StopTDMTheme()
+		hg.DynaMusic:Start("swat4")
+	end
+
 	zb.RemoveFade()
+end)
+
+hook.Add("Think", "TDMThemeVolumeThink", function()
+	if not IsValid(tdmThemeStation) then return end
+
+	local round = CurrentRound()
+	if not round or not round.ThemeMusicFile then
+		StopTDMTheme()
+		return
+	end
+
+	tdmThemeStation:SetVolume((round.ThemeMusicVolume or 0.35) * ((MusicVolume and MusicVolume:GetFloat()) or 1))
+
+	if tdmThemeStation:GetState() != GMOD_CHANNEL_PLAYING then
+		tdmThemeStation:Play()
+	end
+end)
+
+hook.Add("RoundInfoCalled", "TDMThemeRoundInfo", function(rnd)
+	if not IsValid(tdmThemeStation) then return end
+
+	local currentRound = CurrentRound()
+	if currentRound and currentRound.ThemeMusicFile and rnd != currentRound.name then
+		StopTDMTheme()
+	end
 end)
 
 local teams = {
@@ -190,41 +280,47 @@ CreateEndMenu = function()
 		but:DockMargin( 8, 6, 8, -1 )
 		but:SetText("")
 		but.Paint = function(self,w,h)
-            local col1 = (ply:Alive() and colRed) or colGray
-            local col2 = (ply:Alive() and colRedUp) or colSpect1
+			local validPly = IsValid(ply)
+			local isAlive = validPly and ply:Alive()
+            local col1 = (isAlive and colRed) or colGray
+            local col2 = (isAlive and colRedUp) or colSpect1
 			surface.SetDrawColor(col1.r,col1.g,col1.b,col1.a)
 			surface.DrawRect(0,0,w,h)
 			surface.SetDrawColor(col2.r,col2.g,col2.b,col2.a)
 			surface.DrawRect(0,h/2,w,h/2)
 
-            local col = ply:GetPlayerColor():ToColor()
+            local plyColor = validPly and ply:GetPlayerColor():ToColor() or color_white
 			surface.SetFont( "ZB_InterfaceMediumLarge" )
-			local lengthX, lengthY = surface.GetTextSize( ply:GetPlayerName() or "He quited..." )
+			local displayName = validPly and (ply:GetPlayerName() or ply:Name()) or "He quited..."
+			local lengthX, lengthY = surface.GetTextSize(displayName)
 			
 			surface.SetTextColor(0,0,0,255)
 			surface.SetTextPos(w / 2 + 1,h/2 - lengthY/2 + 1)
-			surface.DrawText(ply:GetPlayerName() or "He quited...")
+			surface.DrawText(displayName)
 
-			surface.SetTextColor(col.r,col.g,col.b,col.a)
+			surface.SetTextColor(plyColor.r,plyColor.g,plyColor.b,plyColor.a)
 			surface.SetTextPos(w / 2,h/2 - lengthY/2)
-			surface.DrawText(ply:GetPlayerName() or "He quited...")
+			surface.DrawText(displayName)
 
             
 			local col = colSpect2
 			surface.SetFont( "ZB_InterfaceMediumLarge" )
 			surface.SetTextColor(col.r,col.g,col.b,col.a)
-			local lengthX, lengthY = surface.GetTextSize( ply:GetPlayerName() or "He quited..." )
+			local leftText = validPly and (ply:Name() .. (not isAlive and " - died" or "")) or "He quited..."
+			local lengthX, lengthY = surface.GetTextSize(leftText)
 			surface.SetTextPos(15,h/2 - lengthY/2)
-			surface.DrawText((ply:Name() .. (not ply:Alive() and " - died" or "")) or "He quited...")
+			surface.DrawText(leftText)
 
 			surface.SetFont( "ZB_InterfaceMediumLarge" )
 			surface.SetTextColor(col.r,col.g,col.b,col.a)
-			local lengthX, lengthY = surface.GetTextSize( ply:Frags() or "He quited..." )
+			local fragsText = validPly and tostring(ply:Frags()) or "0"
+			local lengthX, lengthY = surface.GetTextSize(fragsText)
 			surface.SetTextPos(w - lengthX -15,h/2 - lengthY/2)
-			surface.DrawText(ply:Frags() or "He quited...")
+			surface.DrawText(fragsText)
 		end
 
 		function but:DoClick()
+			if not IsValid(ply) then return end
 			if ply:IsBot() then chat.AddText(Color(255,0,0), "no, you can't") return end
 			gui.OpenURL("https://steamcommunity.com/profiles/"..ply:SteamID64())
 		end
@@ -273,29 +369,50 @@ surface.CreateFont("ZB_TDM_DESCSMALL", {
     antialias = true
 })
 
+local defaultBuyMenuTheme = {
+	Background = Color(0, 0, 0, 155),
+	InnerBackground = Color(0, 0, 0, 140),
+	Outline = Color(255, 0, 0, 128),
+	Gradient = Color(155, 0, 0, 55),
+	AttachmentGradient = Color(55, 155, 55, 25),
+}
+
+local function GetBuyMenuTheme()
+	local round = CurrentRound and CurrentRound()
+	return (round and round.BuyMenuTheme) or defaultBuyMenuTheme
+end
+
+local function SetThemeDrawColor(color, fallback)
+	color = color or fallback
+	surface.SetDrawColor(color.r, color.g, color.b, color.a)
+end
+
 local function PaintFrame(self,w,h)
 	BlurBackground(self)
 
-	surface.SetDrawColor( 255, 0, 0, 128)
+	local theme = GetBuyMenuTheme()
+	SetThemeDrawColor(theme.Outline, defaultBuyMenuTheme.Outline)
     surface.DrawOutlinedRect( 0, 0, w, h, 2.5 )
 end
 
 local function PaintPanel(self,w,h)
-	surface.SetDrawColor( 0, 0, 0,155)
+	local theme = GetBuyMenuTheme()
+	SetThemeDrawColor(theme.Background, defaultBuyMenuTheme.Background)
     surface.DrawRect( 0, 0, w, h, 2.5 )
-	surface.SetDrawColor( 255, 0, 0, 128)
+	SetThemeDrawColor(theme.Outline, defaultBuyMenuTheme.Outline)
     surface.DrawOutlinedRect( 0, 0, w, h, 2.5 )
 end
 
 local gradient_l = Material("vgui/gradient-l")
 
 local function PaintPanel1(self,w,h)
-	surface.SetDrawColor( 0, 0, 0,155)
+	local theme = GetBuyMenuTheme()
+	SetThemeDrawColor(theme.Background, defaultBuyMenuTheme.Background)
     surface.DrawRect( 0, 0, w, h, 2.5 )
-	surface.SetDrawColor( 255, 0, 0, 128)
+	SetThemeDrawColor(theme.Outline, defaultBuyMenuTheme.Outline)
     surface.DrawOutlinedRect( 0, 0, w, h, 2.5 )
-	draw.RoundedBox( 0, 2.5, 2.5, w-5, h-5, Color( 0, 0, 0, 140) )
-    surface.SetDrawColor(155, 0, 0, 55)
+	draw.RoundedBox( 0, 2.5, 2.5, w-5, h-5, theme.InnerBackground or defaultBuyMenuTheme.InnerBackground )
+    SetThemeDrawColor(theme.Gradient, defaultBuyMenuTheme.Gradient)
     surface.SetMaterial(gradient_l)
     surface.DrawTexturedRect( 0, 0, w/1.5, h )
 end
@@ -304,7 +421,8 @@ local function PaintPanel2(self,w,h)
 	--surface.SetDrawColor( 15, 15, 15,25)
     --surface.DrawRect( 0, 0, w, h, 2.5 )
 	--draw.RoundedBox( 0, 2.5, 2.5, w-5, h-5, Color( 0, 0, 0, 140) )
-    surface.SetDrawColor(55, 155, 55, 25)
+	local theme = GetBuyMenuTheme()
+    SetThemeDrawColor(theme.AttachmentGradient, defaultBuyMenuTheme.AttachmentGradient)
     surface.SetMaterial(gradient_l)
     surface.DrawTexturedRect( 0, 0, w*1.2, h )
 end
@@ -350,12 +468,20 @@ local function OpenBuyMenu()
 	Sheet.tabScroller:DockMargin( 8, 0, 8, 0 )
 	Sheet:SetFadeTime(0.1)
 
-	for k,category in SortedPairsByMemberValue(MODE.BuyItems, "Priority") do
-		local CategoryPanel = vgui.Create( "DScrollPanel", sheet )
+	local round = CurrentRound and CurrentRound() or MODE
+	local buyItems = (round and round.BuyItems) or MODE.BuyItems
+	if not buyItems then return end
+
+	for k,category in SortedPairsByMemberValue(buyItems, "Priority") do
+		local CategoryPanel = vgui.Create( "DScrollPanel", Sheet )
 		--CategoryPanel:Dock()
 		CategoryPanel.Paint = function() end
+		local hasItems = false
 		for n,Item in pairs(category) do
 			if n == "Priority" then continue end
+			if Item.TeamBased != nil and Item.TeamBased != LocalPlayer():Team() then continue end
+			hasItems = true
+
 			local weapon = weapons.GetStored( Item.ItemClass )
 			local ent = scripted_ents.GetStored( Item.ItemClass )
 
@@ -411,7 +537,7 @@ local function OpenBuyMenu()
 				net.SendToServer()
 			end
 			
-			if weapon then
+			if weapon and weapon.Primary then
 				local ammo = weapon.Primary.Ammo != "none" and weapon.Primary.Ammo or weapon.Ammo or (weapons.GetStored( weapon.Base ) and weapons.GetStored( weapon.Base ).Primary.Ammo)
 				
 				if hg.ammotypeshuy[ammo] then
@@ -429,7 +555,7 @@ local function OpenBuyMenu()
 					amm:SetWidth(w + 7)
 					local ammo2 = "ent_ammo_"..hg.ammotypeshuy[ammo].name
 					local name
-					for name2, ammo in pairs(MODE.BuyItems["Ammo"]) do
+					for name2, ammo in pairs(buyItems["Ammo"] or {}) do
 						if not istable(ammo) then continue end
 						if ammo.ItemClass == ammo2 then
 							name = name2
@@ -460,7 +586,11 @@ local function OpenBuyMenu()
 				for id,AttachN in pairs(Item.Attachments) do
 					local ico = hg.attachmentsIcons[AttachN]
 					local Attach = vgui.Create( "DImageButton" )
-					Attach:SetImage(ico)
+					if not ico then
+    					print("[ATTACHMENT ERROR] Missing icon for:", AttachN, "Item:", n, "Category:", k)
+					else
+    					Attach:SetImage(ico)
+					end
 					Attach:SetSize(ItemIcon-5,ItemIcon-5)
 
 					Attach.Attachment = {k,n,AttachN}
@@ -476,6 +606,8 @@ local function OpenBuyMenu()
 				end
 			end
 		end
+		if not hasItems then continue end
+
 		local tab = Sheet:AddSheet(k,CategoryPanel)
 		local rTab = tab["Tab"]
 		rTab.Paint = PaintPanel

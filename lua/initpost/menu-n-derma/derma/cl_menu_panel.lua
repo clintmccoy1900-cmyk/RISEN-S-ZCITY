@@ -1,13 +1,11 @@
 local PANEL = {}
 local curent_panel 
-local red_select = Color(192,0,0)
-
-DISCORD_URL = "https://discord.gg/475EmEdTgH"
+local lightblue_select = Color(125, 205, 255)
 
 local Selects = {
     {Title = "Disconnect", Func = function(luaMenu) RunConsoleCommand("disconnect") end},
     {Title = "Main Menu", Func = function(luaMenu) gui.ActivateGameUI() luaMenu:Close() end},
-    {Title = "Discord", Func = function(luaMenu) luaMenu:Close() gui.OpenURL(DISCORD_URL)  end},
+    {Title = "Discord", Func = function(luaMenu) luaMenu:Close() gui.OpenURL("https://discord.gg/EydrFSjeFA")  end},
     {Title = "Traitor Role",
     GamemodeOnly = true,
     CreatedFunc = function(self, parent, luaMenu)
@@ -35,7 +33,7 @@ local Selects = {
             self.HoverLerp = selfa.HoverLerp
             self.HoverLerp2 = LerpFT(0.2, self.HoverLerp2 or 0, self:IsHovered() and 1 or 0)
                 
-            self:SetTextColor(self.RColor:Lerp(self.WColor:Lerp(red_select, self.HoverLerp2), self.HoverLerp))
+            self:SetTextColor(self.RColor:Lerp(self.WColor:Lerp(lightblue_select, self.HoverLerp2), self.HoverLerp))
             self:SetX(self.x + ScreenScaleH(40) + self.HoverLerp * ScreenScaleH(50))
         end
 
@@ -62,7 +60,7 @@ local Selects = {
             self.HoverLerp = selfa.HoverLerp
             self.HoverLerp2 = LerpFT(0.2, self.HoverLerp2 or 0, self:IsHovered() and 1 or 0)
     
-            self:SetTextColor(self.RColor:Lerp(self.WColor:Lerp(red_select, self.HoverLerp2), self.HoverLerp))
+            self:SetTextColor(self.RColor:Lerp(self.WColor:Lerp(lightblue_select, self.HoverLerp2), self.HoverLerp))
             self:SetX(self.x + ScreenScaleH(35))
         end
     end,
@@ -81,21 +79,21 @@ local Selects = {
 }
 
 local splasheh = {
-    'LIKE HOMICIDED',
-    'PLUV PLUV PLUVISKI',
-    'LULU IS NOT DEAD | !PLUV',
-    'THE TRAITOR WAS KILLED',
-    'NAB HOMICIDE SERVER',
-    'ALSO TRY MODDED HOMICIDE 2',
-    'HOP ON Z-CITY',
-    'JOHN Z-CITY',
-    ':pluvrare:',
-    'SAW51 IS REAL',
-    'MORE SMALLTOWN',
-    'MORE CLUE2022',
-    'BACKROOMS == CLUE',
-    'HELL IS NEAR',
-    'I WISH YOU GOOD HEALTH, JASON STATHAM'
+    'JOIN OUR DC :)',
+    'JOIN OUR DC :)',
+    'JOIN OUR DC :)',
+    'JOIN OUR DC :)',
+    'JOIN OUR DC :)',
+    'JOIN OUR DC :)',
+    'JOIN OUR DC :)',
+    'JOIN OUR DC :)',
+    'JOIN OUR DC :)',
+    'JOIN OUR DC :)',
+    'JOIN OUR DC :)',
+    'JOIN OUR DC :)',
+    'JOIN OUR DC :)',
+    'JOIN OUR DC :)',
+    'JOIN OUR DC :)'
 }
 
 --print(string.upper('I wish you good health, Jason Statham'))
@@ -118,24 +116,24 @@ function PANEL:InitializeMarkup()
 	local gm = splasheh[math.random(#splasheh)] .. " | " .. string.NiceName(mapname) 
 
     if hg.PluvTown.Active then
-        local text = "<font=ZC_MM_Title><colour=199,2,2>    </colour>City</font>\n<font=ZCity_Tiny><colour=105,105,105>" .. gm .. "</colour></font>"
+        local text = "<font=ZC_MM_Title><colour=125,205,255>    </colour>City</font>\n<font=ZCity_Tiny><colour=105,105,105>" .. gm .. "</colour></font>"
 
         self.SelectedPluv = table.Random(hg.PluvTown.PluvMats)
 
         return markup.Parse(text)
     end
 
-    local text = "<font=ZC_MM_Title><colour=199,2,2,255>Z</colour>-City</font>\n<font=ZCity_Tiny><colour=105,105,105>" .. gm .. "</colour></font>"
+    local text = "<font=ZC_MM_Title><colour=125,205,255,255>RISEN'S</colour><colour=255,255,255,0>  </colour>\nZCITY</font>\n<font=ZCity_Tiny><colour=105,105,105>" .. gm .. "</colour></font>"
     return markup.Parse(text)
 end
 
-local color_red = Color(255,25,25,45)
+local color_red = Color(90, 170, 235, 28)
 local clr_gray = Color(255,255,255,25)
-local clr_verygray = Color(10,10,19,235)
+local clr_verygray = Color(8, 18, 34, 228)
 
 function PANEL:Init()
     self:SetAlpha(0)
-    self:SetSize(ScrW(), ScrH())
+    self:SetSize(ScrW(), ScrH() + 50)
     self:Center()
     self:SetTitle("")
     self:SetDraggable(false)
@@ -164,7 +162,7 @@ function PANEL:Init()
             surface.DrawTexturedRect(0, ScreenScale(27), ScreenScale(35), ScreenScale(27))
         end
 
-        self.Title:Draw(ScreenScale(15), ScreenScale(50), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER, 255, TEXT_ALIGN_LEFT)
+        self.Title:Draw(ScreenScale(12), ScreenScale(50), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER, 255, TEXT_ALIGN_LEFT)
     end
 
     self.Buttons = {}
@@ -183,35 +181,29 @@ function PANEL:Init()
     self.panelparrent:SetSize(ScrW() - bottomDock:GetWide()*1, ScrH())
     self.panelparrent.Paint = function(this, w, h) end
     
+    local gitHubURL = "https://github.com/clintmccoy1900-cmyk/RISEN-S-ZCITY"
+    local gitHubText = "GitHub: github.com/clintmccoy1900-cmyk/RISEN-S-ZCITY"
+
     local git = vgui.Create("DLabel", bottomDock)
     git:Dock(BOTTOM)
     git:DockMargin(ScreenScale(10), 0, 0, 0)
     git:SetFont("ZCity_Tiny")
     git:SetTextColor(clr_gray)
-    git:SetText("GitHub: github.com/" .. hg.GitHub_ReposOwner .. "/" .. hg.GitHub_ReposName)
+    git:SetText(gitHubText)
     git:SetContentAlignment(4)
     git:SetMouseInputEnabled(true)
     git:SizeToContents()
 
     function git:DoClick()
-        gui.OpenURL("https://github.com/" .. hg.GitHub_ReposOwner .. "/" .. hg.GitHub_ReposName)
+        gui.OpenURL(gitHubURL)
     end
-
-    local version = vgui.Create("DLabel", bottomDock)
-    version:Dock(BOTTOM)
-    version:DockMargin(ScreenScale(10), 0, 0, 0)
-    version:SetFont("ZCity_Tiny")
-    version:SetTextColor(clr_gray)
-    version:SetText(hg.Version)
-    version:SetContentAlignment(4)
-    version:SizeToContents()
 
     local zteam = vgui.Create("DLabel", bottomDock)
     zteam:Dock(BOTTOM)
     zteam:DockMargin(ScreenScale(10), 0, 0, 0)
     zteam:SetFont("ZCity_Tiny")
     zteam:SetTextColor(clr_gray)
-    zteam:SetText("Authors: uzelezz, Sadsalat, \nMr.Point, Zac90, Deka, Mannytko")
+    zteam:SetText("Authors: RISEN")
     zteam:SetContentAlignment(4)
     zteam:SizeToContents()
 end
@@ -224,7 +216,7 @@ local gradient_d = surface.GetTextureID("vgui/gradient-d")
 local gradient_r = surface.GetTextureID("vgui/gradient-u")
 local gradient_l = surface.GetTextureID("vgui/gradient-l")
 
-local clr_1 = Color(102,0,0,35)
+local clr_1 = Color(38, 110, 168, 72)
 function PANEL:Paint(w,h)
     draw.RoundedBox( 0, 0, 0, w, h, self.ColorBG )
     hg.DrawBlur(self, 5)
@@ -294,7 +286,7 @@ function PANEL:AddSelect( pParent, strTitle, tbl )
         self.HoverLerp = LerpFT(0.2, self.HoverLerp or 0, (self:IsHovered() or (IsValid(self:GetChild(0)) and self:GetChild(0):IsHovered()) or (IsValid(self:GetChild(0)) and IsValid(self:GetChild(0):GetChild(0)) and self:GetChild(0):GetChild(0):IsHovered())) and 1 or 0)
 
         local v = self.HoverLerp
-        self:SetTextColor(self.RColor:Lerp(red_select, v))
+        self:SetTextColor(self.RColor:Lerp(lightblue_select, v))
 
         local targetText = (self:IsHovered()) and string.upper(strTitle) or strTitle
         local crw = self:GetText()

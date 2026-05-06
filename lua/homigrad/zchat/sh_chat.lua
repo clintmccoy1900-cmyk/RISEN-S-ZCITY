@@ -20,6 +20,7 @@ if CLIENT then
 
 	hook.Add("PlayerStartVoice","RemoveVoicePanles",function(ply)
 		if !IsValid(ply) then return end
+		if hg.CanSeeVoicePanelsInRound and hg.CanSeeVoicePanelsInRound(LocalPlayer()) then return end
 
 		local other_alive = (ply:Alive() and LocalPlayer() != ply) or (ply.organism and (ply.organism.otrub or (ply.organism.brain and ply.organism.brain > 0.05)))
 
@@ -55,14 +56,22 @@ if CLIENT then
 		local speaker = net.ReadEntity()
 		local text = net.ReadString()
 		local bWhisper = net.ReadBool()
+		local validSpeaker = IsValid(speaker) and speaker:IsPlayer()
+		local speakerAlive = validSpeaker and speaker:Alive() or false
 
-		speaker.ChatWhisper = bWhisper
+		if validSpeaker then
+			speaker.ChatWhisper = bWhisper
+		end
 
 		CHAT_SPEAKER = speaker
 
-		local supressed = hook.Run("OnPlayerChat", speaker, text, false, speaker:Alive(), bWhisper)
+		local supressed = hook.Run("OnPlayerChat", speaker, text, false, speakerAlive, bWhisper)
 		if !supressed then
-			chat.AddText(speaker, ": ", text)
+			if validSpeaker then
+				chat.AddText(speaker, ": ", text)
+			else
+				chat.AddText(Color(200, 200, 200), "Unknown", Color(255, 255, 255), ": ", text)
+			end
 		end
 
 		CHAT_SPEAKER = nil
@@ -198,7 +207,7 @@ if CLIENT then
 	end
 
 	local ghost = Color(118, 159, 255)
-	local dead = Color(255, 0, 0)
+	local dead = Color(125, 205, 255)
 	hook.Add("OnPlayerChat", "ZChatDead", function(ply, text, bTeam, bDead, bWhisper)
 		if ( ply:IsPlayer() and !ply:Alive() ) then
 			chat.AddText( dead, "*DEAD* ", ghost, ply:Nick(), ghost, ": "..text )
