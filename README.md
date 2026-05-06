@@ -1,26 +1,37 @@
-# Z-City
-Z-City is a GMod addon which modifies character damage and controls. Z-City also comes with its own weapon base and a gamemode
+# 🌆 ARXIV ZCITY
 
-https://github.com/uzelezz123/8bit_zcity - 8bit module (compiled version is in lua/bin)
+> A high-intensity, immersive **Garry’s Mod gameplay addon** featuring advanced damage systems, custom weapons, and a fully integrated game mode.
 
-Optional Discord RPC module for clients:
-1. https://github.com/YuRaNnNzZZ/gmcl_steamrichpresencer/releases/tag/2023.07.20
-2. https://github.com/fluffy-servers/gmod-discord-rpc/releases/tag/1.2.1
+---
 
-The current version in the repository is 1.4.0
+## 🚀 What is ARXIV ZCITY?
 
-## The numbers in the version number indicate:
-A.Bcc -> 1.000
-- A -> Global updates
-- B -> New mechanics, gameplay changes
-- c -> Fixes and other small things
+**ARXIV ZCITY** is a gameplay overhaul for Garry’s Mod that transforms the experience with deeper mechanics, enhanced combat, and a unique city-based environment.
 
-## Support us
-**Donation links:**
-- [Yoomoney](https://yoomoney.ru/fundraise/17GFEQH326Q.250101) 
-- [Boosty](https://boosty.to/sadsalat/donate)
+- ⚔️ Custom damage system
+- 🔫 Unique weapon base
+- 🎮 Custom game mode
+- 🧠 Designed for immersive RP & PvP servers
 
-**Crypto**
-- USDT(TRC20): TYgpaZgHQr6qEgemhHzVvV7AQESiyhHpZD
-- BTC(BTC): bc1qa8pk9ag6xa5yav2mvlxkra8xk25lg3htgfqh5w
-- ETH(ERC20)* 0x72AdCCcCEB4E323C64bCF0955A779DD9298E9483
+---
+
+## 🧩 Features
+
+✨ **Gameplay Overhaul**
+- Reworked combat mechanics  
+- Balanced damage & interaction system  
+- More tactical gameplay experience  
+
+🔫 **Custom Weapon System**
+- Fully custom weapon base  
+- Expandable and modular design  
+- Easy integration for developers  
+
+🎮 **Game Mode Integration**
+- Dedicated ARXIV ZCITY game mode  
+- Built for community servers  
+- Optimized for performance  
+
+## 🔗 Original Creator
+
+https://github.com/uzelezz123/Z-City
