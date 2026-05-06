@@ -1,4 +1,4 @@
-/># 🌆 RISEN'S ZCITY
+# 🌆 RISEN'S ZCITY
 
 > A high-intensity, immersive **Garry’s Mod gameplay addon** featuring advanced damage systems, custom weapons, and a fully integrated game mode.
 
