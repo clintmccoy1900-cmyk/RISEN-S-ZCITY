@@ -1,4 +1,4 @@
-# 🌆 ARXIV ZCITY
+# 🌆 RISEN'S ZCITY
 
 > A high-intensity, immersive **Garry’s Mod gameplay addon** featuring advanced damage systems, custom weapons, and a fully integrated game mode.
 
@@ -6,7 +6,7 @@
 
 ## 🚀 What is ARXIV ZCITY?
 
-**ARXIV ZCITY** is a gameplay overhaul for Garry’s Mod that transforms the experience with deeper mechanics, enhanced combat, and a unique city-based environment.
+**RISEN'S ZCITY** is a gameplay overhaul for Garry’s Mod that transforms the experience with deeper mechanics, enhanced combat, and a unique city-based environment.
 
 - ⚔️ Custom damage system
 - 🔫 Unique weapon base
