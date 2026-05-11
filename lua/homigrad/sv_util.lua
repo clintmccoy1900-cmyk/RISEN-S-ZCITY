@@ -409,7 +409,6 @@ hook.Add("Player Think", "homigrad-dropholstered", function(ply)
 	if (ply.thinkdropwep or 0) > CurTime() then return end
 	ply.thinkdropwep = CurTime() + 0.1
 	if ply.organism and ply.organism.allowholster then return end
-	if ply.IsUserGroup and ply:IsUserGroup("superadmin") then return end
 
 	local activewep = ply:GetActiveWeapon()
 	local weps = ply:GetWeapons()
@@ -448,10 +447,10 @@ hook.Add( "ScalePlayerDamage", "FlinchPlayersOnHit", function(ply, grp)
 			group = ACT_FLINCH_PHYSICS
 		end
 
-		net.Start( "DoPlayerFlinch" )
+		net.Start( "DoPlayerFlinch", true )
 			net.WriteInt( group, 32 )
 			net.WriteEntity( ply )
-		net.Broadcast()
+		net.SendPVS(ply:GetPos())
 	end
 end )
 
@@ -557,9 +556,9 @@ function entMeta.EmitSound(self,soundName,soundLevel,pitch,volume,channel,soundF
 end
 
 function hg.ExplosionEffect(pos, dis, dmg)
-	net.Start("add_supression") -- i think this useless for now
+	net.Start("add_supression", true) -- i think this useless for now
 	net.WriteVector(pos)
-	net.Broadcast()
+	net.SendPVS(pos)
 end
 
 -- MANUAL PICKUP
@@ -1525,18 +1524,21 @@ hook.Add( "AcceptInput", "StealthOpenDoors", function( ent, inp, act, ply, val )
 end )
 
 hook.Add("PlayerUse", "DoorClose", function(ply, ent)
-	local getdoor = ply:GetUseEntity()
-	if IsValid(getdoor) and getdoor:SDOIsDoor() and DoorIsOpen2(getdoor) then
-		if getdoor:GetInternalVariable("m_hMaster") != NULL then
-			getdoor:GetInternalVariable("m_hMaster"):Fire("close")
-			hg.RunZManipAnim(ply, "door_open_back", nil, 2, {self})
-			return false
-		else
-			getdoor:Fire("close")
-			hg.RunZManipAnim(ply, "door_open_back", nil, 2, {self})
-			return false
-		end
-	end	
+	local getdoor = IsValid(ent) and ent or ply:GetUseEntity()
+	if not IsValid(getdoor) or not getdoor.SDOIsDoor or not getdoor:SDOIsDoor() or not DoorIsOpen2(getdoor) then return end
+
+	local masterDoor = getdoor.GetInternalVariable and getdoor:GetInternalVariable("m_hMaster") or nil
+	local targetDoor = getdoor
+	if IsValid(masterDoor) and masterDoor.SDOIsDoor and masterDoor:SDOIsDoor() then
+		targetDoor = masterDoor
+	end
+
+	if not IsValid(targetDoor) then return false end
+
+	targetDoor:Fire("close")
+	hg.RunZManipAnim(ply, "door_open_back", nil, 2, {targetDoor})
+
+	return false
 end)
 
 hook.Add( "KeyPress", "snowballs_pickup", function( ply, key )

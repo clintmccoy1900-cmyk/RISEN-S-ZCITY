@@ -18,6 +18,7 @@ local PLAYER_KARMA_CAPS = {
     developer = 99999,
     special = 500,
     operator = 500,
+    mapper = 500,
     booster = 250
 }
 
@@ -40,8 +41,11 @@ end
 
 local IMMUNE_GROUPS = {
     "superadmin",
+    "developer",
     "headadmin",
-    "developer"
+    "admin",
+    "operator",
+    "mapper"
 }
 
 local function IsBanImmune(ply)

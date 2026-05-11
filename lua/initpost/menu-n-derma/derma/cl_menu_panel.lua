@@ -1,6 +1,46 @@
 local PANEL = {}
 local curent_panel 
-local lightblue_select = Color(125, 205, 255)
+local select_color = Color(35, 255, 110)
+local menuFontW, menuFontH
+
+local function MenuScale(size)
+    local scale = math.Clamp(math.min(ScrW() / 1920, ScrH() / 1080), 0.78, 1.15)
+    return math.Round(size * scale)
+end
+
+local function MenuLeftWidth()
+    local maxWidth = math.min(ScrW() * 0.34, 680)
+    local minWidth = math.min(360, maxWidth)
+
+    return math.Clamp(MenuScale(520), minWidth, maxWidth)
+end
+
+local function CreateMenuFonts()
+    if menuFontW == ScrW() and menuFontH == ScrH() then return end
+
+    menuFontW, menuFontH = ScrW(), ScrH()
+
+    surface.CreateFont("ZC_MM_Title", {
+        font = "Bahnschrift",
+        size = MenuScale(98),
+        weight = 800,
+        antialias = true
+    })
+
+    surface.CreateFont("ZC_MM_Button", {
+        font = "Bahnschrift",
+        size = MenuScale(38),
+        weight = 700,
+        antialias = true
+    })
+
+    surface.CreateFont("ZC_MM_Tiny", {
+        font = "Bahnschrift",
+        size = MenuScale(18),
+        weight = 700,
+        antialias = true
+    })
+end
 
 local Selects = {
     {Title = "Disconnect", Func = function(luaMenu) RunConsoleCommand("disconnect") end},
@@ -8,64 +48,10 @@ local Selects = {
     {Title = "Discord", Func = function(luaMenu) luaMenu:Close() gui.OpenURL("https://discord.gg/hkJNb6Kcr7")  end},
     {Title = "Traitor Role",
     GamemodeOnly = true,
-    CreatedFunc = function(self, parent, luaMenu)
-        local btn = vgui.Create( "DLabel", self )
-        btn:SetText( "SOE" )
-        btn:SetMouseInputEnabled( true )
-        btn:SizeToContents()
-        btn:SetFont( "ZCity_Small" )
-        btn:SetTall( ScreenScale( 15 ) )
-        btn:Dock(BOTTOM)
-        btn:DockMargin(ScreenScale(20),ScreenScale(10),0,0)
-        btn:SetTextColor(Color(255,255,255))
-        btn:InvalidateParent()
-        btn.RColor = Color(225, 225, 225, 0)
-        btn.WColor = Color(225, 225, 225, 255)
-        btn.x = btn:GetX()
-
-        function btn:DoClick()
-            luaMenu:Close()
-            hg.SelectPlayerRole(nil, "soe")
+    Func = function(luaMenu, pp)
+        if hg.SelectPlayerRole then
+            hg.SelectPlayerRole("Traitor", nil, pp)
         end
-    
-        local selfa = self
-        function btn:Think()
-            self.HoverLerp = selfa.HoverLerp
-            self.HoverLerp2 = LerpFT(0.2, self.HoverLerp2 or 0, self:IsHovered() and 1 or 0)
-                
-            self:SetTextColor(self.RColor:Lerp(self.WColor:Lerp(lightblue_select, self.HoverLerp2), self.HoverLerp))
-            self:SetX(self.x + ScreenScaleH(40) + self.HoverLerp * ScreenScaleH(50))
-        end
-
-        local btn = vgui.Create( "DLabel", btn )
-        btn:SetText( "STD" )
-        btn:SetMouseInputEnabled( true )
-        btn:SizeToContents()
-        btn:SetFont( "ZCity_Small" )
-        btn:SetTall( ScreenScale( 15 ) )
-        btn:Dock(BOTTOM)
-        btn:DockMargin(0,ScreenScale(2),0,0)
-        btn:SetTextColor(Color(255,255,255))
-        btn:InvalidateParent()
-        btn.RColor = Color(225, 225, 225, 0)
-        btn.WColor = Color(225, 225, 225, 255)
-        btn.x = btn:GetX()
-
-        function btn:DoClick()
-            luaMenu:Close()
-            hg.SelectPlayerRole(nil, "standard")
-        end
-    
-        function btn:Think()
-            self.HoverLerp = selfa.HoverLerp
-            self.HoverLerp2 = LerpFT(0.2, self.HoverLerp2 or 0, self:IsHovered() and 1 or 0)
-    
-            self:SetTextColor(self.RColor:Lerp(self.WColor:Lerp(lightblue_select, self.HoverLerp2), self.HoverLerp))
-            self:SetX(self.x + ScreenScaleH(35))
-        end
-    end,
-    Func = function(luaMenu)
-        
     end,
     },
     {Title = "Achievements", Func = function(luaMenu,pp) 
@@ -79,34 +65,27 @@ local Selects = {
 }
 
 local splasheh = {
-    'JOIN OUR DC :)',
-    'JOIN OUR DC :)',
-    'JOIN OUR DC :)',
-    'JOIN OUR DC :)',
-    'JOIN OUR DC :)',
-    'JOIN OUR DC :)',
-    'JOIN OUR DC :)',
-    'JOIN OUR DC :)',
-    'JOIN OUR DC :)',
-    'JOIN OUR DC :)',
-    'JOIN OUR DC :)',
-    'JOIN OUR DC :)',
-    'JOIN OUR DC :)',
-    'JOIN OUR DC :)',
-    'JOIN OUR DC :)'
+    'JOIN OUR DISCORD',
+    'PLUV PLUV PLUVISKI',
+    'LULU IS NOT DEAD | !PLUV',
+    'THE TRAITOR WAS KILLED',
+    'NAB HOMICIDE SERVER',
+    'ALSO TRY MODDED HOMICIDE 2',
+    'HOP ON Z-CITY',
+    'JOHN Z-CITY',
+    ':pluvrare:',
+    'SAW51 IS REAL',
+    'MORE SMALLTOWN',
+    'MORE CLUE2022',
+    'BACKROOMS == CLUE',
+    'HELL IS NEAR',
+    'I WISH YOU GOOD HEALTH, JASON STATHAM'
 }
 
 --print(string.upper('I wish you good health, Jason Statham'))
-surface.CreateFont("ZC_MM_Title", {
-    font = "Bahnschrift",
-    size = ScreenScale(40),
-    weight = 800,
-    antialias = true
-})
 -- local Title = markup.Parse("error")
 
 local Pluv = Material("pluv/pluvkid.jpg")
-local BRAND_TITLE = "CLINT MCCOY'S"
 
 function PANEL:InitializeMarkup()
 	local mapname = game.GetMap()
@@ -117,22 +96,24 @@ function PANEL:InitializeMarkup()
 	local gm = splasheh[math.random(#splasheh)] .. " | " .. string.NiceName(mapname) 
 
     if hg.PluvTown.Active then
-        local text = "<font=ZC_MM_Title><colour=125,205,255>    </colour>City</font>\n<font=ZCity_Tiny><colour=105,105,105>" .. gm .. "</colour></font>"
+        local text = "<font=ZC_MM_Title><colour=125,205,255>    </colour>City</font>\n<font=ZC_MM_Tiny><colour=105,105,105>" .. gm .. "</colour></font>"
 
         self.SelectedPluv = table.Random(hg.PluvTown.PluvMats)
 
         return markup.Parse(text)
     end
 
-    local text = "<font=ZC_MM_Title><colour=125,205,255,255>" .. BRAND_TITLE .. "</colour><colour=255,255,255,0>  </colour>\nZCITY</font>\n<font=ZCity_Tiny><colour=105,105,105>" .. gm .. "</colour></font>"
+    local text = "<font=ZC_MM_Title><colour=35,255,110,255>CLINT MCCOY'S</colour><colour=255,255,255,0>  </colour>\nZCITY</font>\n<font=ZC_MM_Tiny><colour=105,105,105>" .. gm .. "</colour></font>"
     return markup.Parse(text)
 end
 
-local color_red = Color(90, 170, 235, 28)
-local clr_gray = Color(255,255,255,25)
-local clr_verygray = Color(8, 18, 34, 228)
+local color_red = Color(13, 82, 37, 45)
+local clr_gray = Color(255, 255, 255, 25)
+local clr_verygray = Color(10, 10, 19, 235)
 
 function PANEL:Init()
+    CreateMenuFonts()
+
     self:SetAlpha(0)
     self:SetSize(ScrW(), ScrH() + 50)
     self:Center()
@@ -151,48 +132,69 @@ function PANEL:Init()
         end
     end)
 
-    surface.SetFont("ZC_MM_Title")
-    local titleWidth = surface.GetTextSize(BRAND_TITLE)
-    local menuWidth = math.max(ScrW() / 4, titleWidth + ScreenScale(24))
-
     self.lDock = vgui.Create("DPanel", self)
     local lDock = self.lDock
+    local baseLeftWidth = MenuLeftWidth()
+    local titleWidth = self.Title and self.Title:GetWidth() or 0
+    local maxLeftWidth = math.min(ScrW() - MenuScale(80), 980)
+    local minLeftWidth = math.min(360, maxLeftWidth)
+    local leftWidth = math.Clamp(math.max(baseLeftWidth, titleWidth + MenuScale(90)), minLeftWidth, maxLeftWidth)
+    local visibleSelects = {}
+    for k, v in ipairs(Selects) do
+        if v.GamemodeOnly and engine.ActiveGamemode() != "zcity" then continue end
+
+        visibleSelects[#visibleSelects + 1] = v
+    end
+
+    local buttonHeight = MenuScale(47)
+    local buttonGap = MenuScale(2)
+    local titleToButtons = MenuScale(185)
+    local footerHeight = MenuScale(76)
+    local buttonDockH = #visibleSelects * (buttonHeight + buttonGap) + buttonGap
+    local footerY = ScrH() - footerHeight - MenuScale(34)
+    local maxGroupTop = footerY - titleToButtons - buttonDockH - MenuScale(44)
+    local groupTop = math.max(MenuScale(54), math.min(ScrH() * 0.32, maxGroupTop))
+    local buttonDockY = groupTop + titleToButtons
+
     lDock:Dock(LEFT)
-    lDock:SetSize(menuWidth, ScrH())
-    lDock:DockMargin(ScreenScale(0), ScreenScaleH(90), ScreenScale(10), ScreenScaleH(90))
+    lDock:SetSize(leftWidth, ScrH())
+    lDock:DockMargin(0, 0, MenuScale(10), 0)
     lDock.Paint = function(this, w, h)
         if hg.PluvTown.Active then
             surface.SetDrawColor(color_white)
             surface.SetMaterial(self.SelectedPluv or Pluv)
-            surface.DrawTexturedRect(0, ScreenScale(27), ScreenScale(35), ScreenScale(27))
+            surface.DrawTexturedRect(0, MenuScale(54), MenuScale(70), MenuScale(54))
         end
 
-        self.Title:Draw(ScreenScale(12), ScreenScale(50), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER, 255, TEXT_ALIGN_LEFT)
+        self.Title:Draw(MenuScale(34), groupTop + MenuScale(120), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER, 255, TEXT_ALIGN_LEFT)
     end
 
     self.Buttons = {}
-    for k, v in ipairs(Selects) do
-        if v.GamemodeOnly and engine.ActiveGamemode() != "zcity" then continue end
-        self:AddSelect(lDock, v.Title, v)
+    local buttonDock = vgui.Create("DPanel", lDock)
+    buttonDock:SetPos(0, buttonDockY)
+    buttonDock:SetSize(leftWidth, buttonDockH)
+    buttonDock.Paint = function(this, w, h) end
+
+    for k, v in ipairs(visibleSelects) do
+        self:AddSelect(buttonDock, v.Title, v)
     end
 
-
     local bottomDock = vgui.Create("DPanel", self)
-    bottomDock:SetPos(ScreenScale(1), ScrH() - ScrH()/10)
-    bottomDock:SetSize(menuWidth, ScreenScaleH(40))
+    bottomDock:SetPos(MenuScale(24), footerY)
+    bottomDock:SetSize(leftWidth, footerHeight)
     bottomDock.Paint = function(this, w, h) end
     self.panelparrent = vgui.Create("DPanel", self)
-    self.panelparrent:SetPos(menuWidth + bottomDock:GetX(), 0)
-    self.panelparrent:SetSize(ScrW() - menuWidth - bottomDock:GetX(), ScrH())
+    self.panelparrent:SetPos(leftWidth + MenuScale(32), 0)
+    self.panelparrent:SetSize(ScrW() - leftWidth - MenuScale(32), ScrH())
     self.panelparrent.Paint = function(this, w, h) end
     
     local gitHubURL = "https://github.com/clintmccoy1900-cmyk/CLINTMCCOY-S-ZCITY"
-    local gitHubText = "GitHub: https://github.com/clintmccoy1900-cmyk/CLINTMCCOY-S-ZCITY"
+    local gitHubText = "https://github.com/clintmccoy1900-cmyk/CLINTMCCOY-S-ZCITY"
 
     local git = vgui.Create("DLabel", bottomDock)
     git:Dock(BOTTOM)
-    git:DockMargin(ScreenScale(10), 0, 0, 0)
-    git:SetFont("ZCity_Tiny")
+    git:DockMargin(MenuScale(10), 0, 0, 0)
+    git:SetFont("ZC_MM_Tiny")
     git:SetTextColor(clr_gray)
     git:SetText(gitHubText)
     git:SetContentAlignment(4)
@@ -205,8 +207,8 @@ function PANEL:Init()
 
     local zteam = vgui.Create("DLabel", bottomDock)
     zteam:Dock(BOTTOM)
-    zteam:DockMargin(ScreenScale(10), 0, 0, 0)
-    zteam:SetFont("ZCity_Tiny")
+    zteam:DockMargin(MenuScale(10), 0, 0, 0)
+    zteam:SetFont("ZC_MM_Tiny")
     zteam:SetTextColor(clr_gray)
     zteam:SetText("Authors: clintmccoy1900-cmyk")
     zteam:SetContentAlignment(4)
@@ -221,7 +223,7 @@ local gradient_d = surface.GetTextureID("vgui/gradient-d")
 local gradient_r = surface.GetTextureID("vgui/gradient-u")
 local gradient_l = surface.GetTextureID("vgui/gradient-l")
 
-local clr_1 = Color(38, 110, 168, 72)
+local clr_1 = Color(13, 64, 22, 72)
 function PANEL:Paint(w,h)
     draw.RoundedBox( 0, 0, 0, w, h, self.ColorBG )
     hg.DrawBlur(self, 5)
@@ -240,10 +242,10 @@ function PANEL:AddSelect( pParent, strTitle, tbl )
     btn:SetText( strTitle )
     btn:SetMouseInputEnabled( true )
     btn:SizeToContents()
-    btn:SetFont( "ZCity_Small" )
-    btn:SetTall( ScreenScale( 15 ) )
+    btn:SetFont( "ZC_MM_Button" )
+    btn:SetTall( MenuScale( 44 ) )
     btn:Dock(BOTTOM)
-    btn:DockMargin(ScreenScale(15),ScreenScale(1.5),0,0)
+    btn:DockMargin(MenuScale(34), MenuScale(2), 0, 0)
     btn.Func = tbl.Func
     btn.HoveredFunc = tbl.HoveredFunc
     local luaMenu = self 
@@ -291,7 +293,7 @@ function PANEL:AddSelect( pParent, strTitle, tbl )
         self.HoverLerp = LerpFT(0.2, self.HoverLerp or 0, (self:IsHovered() or (IsValid(self:GetChild(0)) and self:GetChild(0):IsHovered()) or (IsValid(self:GetChild(0)) and IsValid(self:GetChild(0):GetChild(0)) and self:GetChild(0):GetChild(0):IsHovered())) and 1 or 0)
 
         local v = self.HoverLerp
-        self:SetTextColor(self.RColor:Lerp(lightblue_select, v))
+        self:SetTextColor(self.RColor:Lerp(select_color, v))
 
         local targetText = (self:IsHovered()) and string.upper(strTitle) or strTitle
         local crw = self:GetText()

@@ -12,8 +12,9 @@ ESP.NextToggle = 0
 local ESPEye = CreateClientConVar("zb_espeye", "0", true, false, "Show admin ESP eye trace line")
 local liveESPUserGroups = {
 	["superadmin"] = true,
+	["developer"] = true,
 	["headadmin"] = true,
-	["developer"] = true
+	["admin"] = true
 }
 
 local col_default = Color(255, 0, 0)
@@ -40,7 +41,7 @@ end
 
 local function CanUseESPClient( ply )
 	if !IsValid( ply ) then return false end
-	return ply:IsAdmin() or CanUseLiveESPClient( ply )
+	return CanUseLiveESPClient( ply )
 end
 
 local function CanRenderESP( ply )

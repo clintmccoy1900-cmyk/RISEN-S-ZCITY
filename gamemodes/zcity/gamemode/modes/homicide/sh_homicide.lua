@@ -15,6 +15,20 @@ if(CLIENT)then
 	MODE.ConVar_SubRole_Traitor = CreateClientConVar(MODE.ConVarName_SubRole_Traitor, "traitor_default", true, true, "Выбор роли трейтора в стандартном режиме хомисайда")
 end
 
+function MODE.IsThiefRole(subrole)
+	return subrole == "traitor_thief" or subrole == "traitor_thief_soe"
+end
+
+if SERVER then
+	function MODE.MarkThiefStartInventory(ply)
+		if not IsValid(ply) then return end
+
+		ply.HMCD_ThiefInitializing = nil
+		ply.HMCD_IsThief = true
+		ply.HMCD_ThiefPickupInventory = {}
+	end
+end
+
 --; TODO
 --; Инженер - шахид бомба + иеды
 
@@ -29,11 +43,12 @@ You've prepared for a long time.
 You are equipped with various weapons, poisons and explosives, grenades and your favourite heavy duty knife and a zoraki signal pistol to help you kill.]],
 		Objective = "You're geared up with items, poisons, explosives and weapons hidden in your pockets. Murder everyone here.",
 		SpawnFunction = function(ply)
-			local wep = ply:Give("weapon_zoraki")
+			if not IsValid(ply) then return end
+			local p22 = ply:Give("weapon_p22")
+			if not IsValid(p22) then return end
+			ply:GiveAmmo(p22:GetMaxClip1() * 1, p22:GetPrimaryAmmoType(), true)
 			
-			timer.Simple(1, function()
-				wep:ApplyAmmoChanges(2)
-			end)
+			hg.AddAttachmentForce(ply, p22, "supressor4")
 			
 			ply:Give("weapon_buck200knife")	
 			ply:Give("weapon_hg_rgd_tpik")
@@ -138,8 +153,59 @@ For people who like to play chess.]],
 	--==//
 	
 	--==\\
-	--; СДЕЛАТЬ ЕМУ ЛУТ ДРУГИХ ИГРОКОВ ДАЖЕ ПОКА У НИХ НЕТ ПУШКИ В РУКАХ
-	--; Сделать ему вырубание по вагус нерву
+	["traitor_thief"] = {
+		Name = "Thief",
+		Description = [[Can search standing players.
+Every item found while searching a player is instantly revealed.
+Your starting gear is hidden from anyone searching you; only items you pick up during the round are exposed.]],
+		Objective = "You are the Thief. Pickpocket from the living, traitor items stay hidden when searched, and murder everyone.",
+		SpawnFunction = function(ply)
+			ply.HMCD_ThiefInitializing = true
+
+			ply:Give("weapon_sogknife")
+			ply:Give("weapon_adrenaline")
+			ply:Give("weapon_hg_smokenade_tpik")
+
+			ply.organism.stamina.max = 280
+			local inv = ply:GetNetVar("Inventory", {})
+			inv["Weapons"] = inv["Weapons"] or {}
+			inv["Weapons"]["hg_flashlight"] = true
+
+			ply:SetNetVar("Inventory", inv)
+			MODE.MarkThiefStartInventory(ply)
+		end,
+	},
+	--==//
+	
+	--==\\
+	["traitor_thief_soe"] = {
+		Name = "Thief",
+		Description = [[Can search standing players.
+Every item found while searching a player is instantly revealed.
+Your starting gear is hidden from anyone searching you; only items you pick up during the round are exposed.
+Equipped with a walkie-talkie for State of Emergency coordination.]],
+		Objective = "You are the Thief. Pickpocket from the living, traitor items stay hidden when searched, and murder everyone.",
+		SpawnFunction = function(ply)
+			ply.HMCD_ThiefInitializing = true
+
+			ply:Give("weapon_sogknife")
+			ply:Give("weapon_walkie_talkie")
+			ply:Give("weapon_adrenaline")
+			ply:Give("weapon_hg_smokenade_tpik")
+
+			ply.organism.recoilmul = 1
+			ply.organism.stamina.max = 280
+			local inv = ply:GetNetVar("Inventory", {})
+			inv["Weapons"] = inv["Weapons"] or {}
+			inv["Weapons"]["hg_flashlight"] = true
+
+			ply:SetNetVar("Inventory", inv)
+			MODE.MarkThiefStartInventory(ply)
+		end,
+	},
+	--==//
+
+	--==\\
 	["traitor_assasin"] = {
 		Name = "Assasin",
 		Description = [[Can quickly disarm people from any angle.
@@ -221,6 +287,34 @@ Can detect presence and potency of chemical agents in the air.]],
 		end,
 	},	
 	--==//
+
+	["traitor_chemist_soe"] = {
+			Name = "Chemist",
+			Description = [[Has multiple chemical agents and epipen and knife.
+Resistant to a certain degree to all chemical agents mentioned.
+Can detect presence and potency of chemical agents in the air.]],
+			Objective = "You're a chemist who decided to use his knowledge to hurt others. Poison everything.",
+			SpawnFunction = function(ply)
+				ply:Give("weapon_sogknife")
+				ply:Give("weapon_adrenaline")
+				ply:Give("weapon_traitor_poison1")
+				ply:Give("weapon_traitor_poison2")
+				ply:Give("weapon_traitor_poison3")
+				ply:Give("weapon_traitor_poison4")
+				ply:Give("weapon_traitor_poison_consumable")
+				ply:Give("weapon_traitor_sleepcanister")
+				ply:Give("weapon_zc_fiberwire_standalone")
+			
+				ply.organism.stamina.max = 220
+				local inv = ply:GetNetVar("Inventory", {})
+				inv["Weapons"]["hg_flashlight"] = true
+			
+				ply:SetNetVar("Inventory", inv)
+				if CleanChemicalsOfPlayer then
+					CleanChemicalsOfPlayer(ply)
+				end
+			end,
+		},	
 	
 	--==\\
 	["traitor_shadow"] = {
@@ -368,6 +462,9 @@ Perfect for aggressive players who want to spread chaos and kill as many people 
 			ply:Give("weapon_bombvest")
 			ply:Give("weapon_matches")
 			ply:Give("weapon_hg_pipebomb_tpik")
+			ply:Give("weapon_hg_molotov_tpik")
+			ply:Give("weapon_hg_grenade_tpik")
+			ply:Give("weapon_traitor_ied")
 			ply:Give("weapon_buck200knife")
 
 			ply.organism.stamina.max = 300
@@ -387,6 +484,9 @@ Perfect for aggressive players who want to spread chaos and kill as many people 
 			ply:Give("weapon_bombvest")
 			ply:Give("weapon_matches")
 			ply:Give("weapon_hg_pipebomb_tpik")
+			ply:Give("weapon_hg_molotov_tpik")
+			ply:Give("weapon_hg_grenade_tpik")
+			ply:Give("weapon_traitor_ied")
 			ply:Give("weapon_buck200knife")
 
 			ply.organism.recoilmul = 1
@@ -636,6 +736,7 @@ MODE.RoleChooseRoundTypes = {
 			["traitor_default"] = true,
 			["traitor_infiltrator"] = true,
 			["traitor_chemist"] = true,
+			["traitor_thief"] = true,
 			["traitor_shadow"] = true,
 			["traitor_assasin"] = true,
 			["traitor_maniac"] = true, 	-- maniac killer
@@ -701,6 +802,8 @@ MODE.RoleChooseRoundTypes = {
 		Traitor = {
 			["traitor_default_soe"] = true,
 			["traitor_infiltrator_soe"] = true,
+			["traitor_chemist_soe"] = true,
+			["traitor_thief_soe"] = true,
 			["traitor_shadow_soe"] = true,
 			["traitor_assasin_soe"] = true,
 			["traitor_maniac_soe"] = true,

@@ -11,9 +11,12 @@ local allESP = {}
 local lastToggle = {}
 local liveESPUserGroups = {
 	["superadmin"] = true,
+	["developer"] = true,
+	["developer"] = true,
 	["headadmin"] = true,
-	["developer"] = true
+	["admin"] = true
 }
+
 local ESP_PDATA_KEY = "zcity_live_esp_enabled"
 
 local function getSteamKey( ply )
@@ -53,7 +56,7 @@ end
 
 function ESP:CanUseESP( ply )
 	if !IsValid( ply ) then return false end
-	return ply:IsAdmin() or self:CanUsePersistentLiveESP( ply )
+	return self:CanUsePersistentLiveESP( ply )
 end
 
 function ESP:LoadPreference( ply )
@@ -227,7 +230,10 @@ function ESP:SetupCommands()
 		lastToggle[steamId] = curTime + 0.3
 
 		local enabled = ESP:ToggleESP( ply )
-		ply:ChatPrint(enabled and "ESP | Enabled" or "ESP | Disabled")
+		local msg = enabled and "ESP | Enabled" or "ESP | Disabled"
+
+		ply:ChatPrint(msg)
+		print("[INFO] " .. ply:Nick() .. " | " .. msg)
 	end)
 
 	concommand.Add("zb_allesp", function( ply, cmd, args )

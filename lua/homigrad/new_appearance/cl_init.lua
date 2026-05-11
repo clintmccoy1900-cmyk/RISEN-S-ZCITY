@@ -147,16 +147,60 @@ local function IsShadowCamouflageActiveOnEnt(ent, ply)
 	return false
 end
 
-local function ClearAccessoryModels(ent)
-	if not IsValid(ent) or not ent.modelAccess then return end
+local function ClearAccessoryModels(...)
+	local seen = {}
 
-	for key, model in pairs(ent.modelAccess) do
-		if IsValid(model) then
-			model:Remove()
+	for i = 1, select("#", ...) do
+		local ent = select(i, ...)
+		if not IsValid(ent) then continue end
+		if seen[ent] then continue end
+		seen[ent] = true
+
+		if not ent.modelAccess then continue end
+
+		for key, model in pairs(ent.modelAccess) do
+			if IsValid(model) then
+				model:Remove()
+			end
+
+			ent.modelAccess[key] = nil
 		end
-
-		ent.modelAccess[key] = nil
 	end
+end
+
+local function NormalizeAppearanceOwner(ent)
+	if not IsValid(ent) then return ent end
+
+	local owner = hg.RagdollOwner(ent)
+	return IsValid(owner) and owner or ent
+end
+
+local function IsLocalFirstPersonAppearanceTarget(ply, ent)
+	local lply = LocalPlayer()
+	if not IsValid(lply) then return false end
+
+	local normalizedTarget = NormalizeAppearanceOwner(ent)
+	if not IsValid(normalizedTarget) then
+		normalizedTarget = NormalizeAppearanceOwner(ply)
+	end
+
+	if not IsValid(normalizedTarget) then return false end
+
+	if lply:Alive() then
+		return GetViewEntity() == lply and normalizedTarget == NormalizeAppearanceOwner(lply)
+	end
+
+	if lply:GetNWInt("viewmode", 0) ~= 1 then return false end
+
+	local spectTarget = NormalizeAppearanceOwner(lply:GetNWEntity("spect", lply))
+	if not IsValid(spectTarget) then return false end
+
+	if normalizedTarget ~= spectTarget then return false end
+
+	local viewEnt = GetViewEntity()
+	if viewEnt == lply then return true end
+
+	return IsValid(viewEnt) and NormalizeAppearanceOwner(viewEnt) == spectTarget
 end
 
 function RenderAccessories(ply, accessories, setup)
@@ -170,23 +214,28 @@ function RenderAccessories(ply, accessories, setup)
 	local ent = IsValid(ply.FakeRagdoll) and ply.FakeRagdoll or ply
 	ent = IsValid(ply.OldRagdoll) and ply.OldRagdoll:IsRagdoll() and ply.OldRagdoll or ent
 
-	islply = ((ply:IsRagdoll() and hg.RagdollOwner(ply)) or ply) == (LocalPlayer():Alive() and LocalPlayer() or LocalPlayer():GetNWEntity("spect",LocalPlayer())) and GetViewEntity() == (LocalPlayer():Alive() and LocalPlayer() or LocalPlayer():GetNWEntity("spect",LocalPlayer()))
+	islply = IsLocalFirstPersonAppearanceTarget(ply, ent)
 	
 	local fountains = GetNetVar("fountains") or {}
 	if ent == follow and hg_firstperson_death:GetBool() and !fountains[ent] then islply = true end
 
 	if IsShadowCamouflageActiveOnEnt(ent, ply) then
-		ClearAccessoryModels(ent)
+		ClearAccessoryModels(ply, ent)
+		return
+	end
+
+	if islply then
+		ClearAccessoryModels(ply, ent)
 		return
 	end
 
 	if islply and IsValid(wep) and whitelist[wep:GetClass()] then
-		ClearAccessoryModels(ent)
+		ClearAccessoryModels(ply, ent)
 		return
 	end
 
 	if not ent.shouldTransmit or ent.NotSeen then
-		ClearAccessoryModels(ent)
+		ClearAccessoryModels(ply, ent)
 		return
 	end
 
@@ -209,6 +258,18 @@ function RenderAccessories(ply, accessories, setup)
 end
 
 local huy_addvec = Vector(0.4,0,0.4)
+
+local function ShouldHideAccessoryInFirstPerson(accessData, islply)
+	if not islply or not istable(accessData) then return false end
+
+	local placement = accessData.placement
+	if placement == "head" or placement == "face" then
+		return true
+	end
+
+	return accessData.bone == "ValveBiped.Bip01_Head1"
+end
+
 function DrawAccesories(ply, ent, accessories,accessData, islply, force, setup)
 	if not accessories then return end
 	if not accessData then return end
@@ -300,7 +361,7 @@ function DrawAccesories(ply, ent, accessories,accessData, islply, force, setup)
 	end
 
 	if model:GetParent() != ent then model:SetParent(ent, bone) end
-	if !(islply and accessData.norender) and (!setup or accessData.bonemerge) then
+	if not ShouldHideAccessoryInFirstPerson(accessData, islply) and !(islply and accessData.norender) and (!setup or accessData.bonemerge) then
 		if accessData["bSetColor"] then
 			local colorDraw = accessData["vecColorOveride"] or ( ply.GetPlayerColor and ply:GetPlayerColor() or ply:GetNWVector("PlayerColor",Vector(1,1,1)) )
 			render.SetColorModulation( colorDraw[1],colorDraw[2],colorDraw[3] )
@@ -487,27 +548,23 @@ function CoolRenderAccessories(ply, accessories)
 
 	local ent = IsValid(ply.FakeRagdoll) and ply.FakeRagdoll or ply
 
-	islply = ((ply:IsRagdoll() and hg.RagdollOwner(ply)) or ply) == (LocalPlayer():Alive() and LocalPlayer() or LocalPlayer():GetNWEntity("spect",LocalPlayer())) and GetViewEntity() == (LocalPlayer():Alive() and LocalPlayer() or LocalPlayer():GetNWEntity("spect",LocalPlayer()))
+	islply = IsLocalFirstPersonAppearanceTarget(ply, ent)
+
+	local fountains = GetNetVar("fountains") or {}
+	if ent == follow and hg_firstperson_death:GetBool() and !fountains[ent] then islply = true end
+
+	if islply then
+		ClearAccessoryModels(ply, ent)
+		return
+	end
 
 	if islply and IsValid(wep) and whitelist[wep:GetClass()] then
-		if not ent.modelAccess then return end
-		for k,v in ipairs(ent.modelAccess) do
-			if IsValid(v) then
-				v:Remove()
-				v = nil
-			end
-		end
+		ClearAccessoryModels(ply, ent)
 		return
 	end
 
 	if not ent.shouldTransmit or ent.NotSeen then
-		if not ent.modelAccess then return end
-		for k,v in ipairs(ent.modelAccess) do
-			if IsValid(v) then
-				v:Remove()
-				v = nil
-			end
-		end
+		ClearAccessoryModels(ply, ent)
 		return
 	end
 

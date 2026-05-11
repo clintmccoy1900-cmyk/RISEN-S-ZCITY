@@ -401,9 +401,12 @@ function hg.ExplodeHead(ent)
 	local ply = ent:IsRagdoll() and hg.RagdollOwner(ent) or ent
 	if ply:IsPlayer() and ply:Alive() then ply:Kill() end
 	if ent:IsNPC() and ent.organism then ent.organism.shock = 100 end
+	local target = ent
 
 	timer.Simple(0, function()
-		local ent = ent:IsRagdoll() and ent or ent:GetNWEntity("RagdollDeath")
+		if not IsValid(target) then return end
+
+		local ent = target:IsRagdoll() and target or target:GetNWEntity("RagdollDeath")
 		if not IsValid(ent) then return end
 		--[[if not isbool(ent) then
 			hook.Run("OnHeadExplode", ply, ent)
@@ -779,12 +782,12 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 		timer.Simple(0, function()
 			timer.Create("Blood_burst_input"..ent:EntIndex(), 0.02, 1, function()
 				if not IsValid(ent) then return end
-				net.Start("hg_bloodimpact")
+				net.Start("hg_bloodimpact", true)
 				net.WriteVector(inputHole[1])
 				net.WriteVector(dir / 2)
 				net.WriteFloat(dmg)
 				net.WriteInt(ent.bloodamt2, 8)
-				net.Broadcast()
+				net.SendPVS(inputHole[1])
 				ent.bloodamt2 = 0
 			end)
 		end)
@@ -1018,22 +1021,22 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 				if !rag.bloodsquirted and !rag.headexploded and (hitgroup == HITGROUP_HEAD) and (bit.band(dmgtype, DMG_BULLET + DMG_BUCKSHOT) > 0) and math.random(4) == 1 and org.pulse > 30 then
 					rag.bloodsquirted = true
 
-					net.Start("bloodsquirt")
+					net.Start("bloodsquirt", true)
 					net.WriteEntity(rag)
 					net.WriteString(bonename)
 					net.WriteMatrix(mat)
 					net.WriteVector(dmgPos + dirCool * 2)
 					net.WriteVector(-dirCool * 2)
-					net.Broadcast()
+					net.SendPVS(dmgPos)
 
 					if outputHole and #outputHole > 0 then
-						net.Start("bloodsquirt")
+						net.Start("bloodsquirt", true)
 						net.WriteEntity(rag)
 						net.WriteString(bonename)
 						net.WriteMatrix(mat)
 						net.WriteVector(outputHole[1] - dirCool * 2)
 						net.WriteVector(dirCool * 2)
-						net.Broadcast()
+						net.SendPVS(outputHole[1])
 					end
 				end
 			end
@@ -1082,12 +1085,12 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 	-- EFFECT
 	if dmgInfo:IsDamageType(DMG_BULLET + DMG_BUCKSHOT) then
 		if dmgBlood > 1 and #inputHole > 0 then
-			net.Start("hg_bloodimpact")
+			net.Start("hg_bloodimpact", true)
 			net.WriteVector(dmgPos)
 			net.WriteVector(dirCool / 15)
 			net.WriteFloat(dmg / 10)
 			net.WriteInt(1, 8)
-			net.Broadcast()
+			net.SendPVS(dmgPos)
 
 			--[[if (hitgroup ~= HITGROUP_HEAD) then
 				if dmgInfo:IsDamageType(DMG_BULLET + DMG_BUCKSHOT) then
@@ -1554,9 +1557,12 @@ function hg.BreakNeck(ent)
 
 	ent.organism.spine3 = 1
 	ent:EmitSound("neck_snap_01.wav", 60, 100, 1, CHAN_AUTO)
+	local target = ent
 	
 	timer.Simple(0.1, function()
-		local ent = ent:IsRagdoll() and ent or ent:GetNWEntity("RagdollDeath")
+		if not IsValid(target) then return end
+
+		local ent = target:IsRagdoll() and target or target:GetNWEntity("RagdollDeath")
 
 		if IsValid(ent) then
 			ent:RemoveInternalConstraint(ent:TranslateBoneToPhysBone(ent:LookupBone("ValveBiped.Bip01_Head1")))

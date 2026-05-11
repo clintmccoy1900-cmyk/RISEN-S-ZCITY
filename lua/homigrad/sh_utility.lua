@@ -879,17 +879,9 @@ local IsValid = IsValid
 	end
 --//
 --\\ Calculate Weight 
-	function hg.HasUnlimitedMovement(ply)
-		if not IsValid(ply) or not ply:IsPlayer() then return false end
-		if ply.IsSuperAdmin and ply:IsSuperAdmin() then return true end
-		if ply.IsUserGroup and ply:IsUserGroup("superadmin") then return true end
-
-		local userGroup = string.lower((ply.GetUserGroup and ply:GetUserGroup()) or "")
-		return userGroup == "superadmin"
-	end
 
 	function hg.CalculateWeight(ply,maxweight)
-		if hg.HasUnlimitedMovement(ply) then
+		if IsValid(ply) and ply.IsSuperAdmin and ply:IsSuperAdmin() then
 			return 1
 		end
 
@@ -1735,19 +1727,21 @@ function util.ScreenShake(vPos, nAmplitude, nFrequency, nDuration, nRadius, bAir
 	if SERVER then -- SERVER SIDE
 		vPos = vPos or Vector(0,0,0)
 		nRadius = nRadius or (nAmplitude * 100)
-		local tEnts = ents.FindInSphere(vPos, nRadius * nRadius)
-		--PrintTable(tEnts)
-		local crf = RecipientFilter()
-		--print(#tEnts)
-		for i = 1, #tEnts do
-			local eEnt = tEnts[i]
-			if !IsValid(eEnt) then continue end
-			if !eEnt:IsPlayer() then continue end
-			crf:AddPlayer(eEnt)
+		local crf = crfFilter
+
+		if not crf then
+			local tEnts = ents.FindInSphere(vPos, nRadius)
+			crf = RecipientFilter()
+
+			for i = 1, #tEnts do
+				local eEnt = tEnts[i]
+				if !IsValid(eEnt) then continue end
+				if !eEnt:IsPlayer() then continue end
+				crf:AddPlayer(eEnt)
+			end
 		end
-		crf = crf or crfFilter
-		--print(crf)
-		net.Start("util.ScreenShake")
+
+		net.Start("util.ScreenShake", true)
 			net.WriteVector(vPos)
 			net.WriteFloat(nAmplitude)
 			net.WriteFloat(nFrequency)
