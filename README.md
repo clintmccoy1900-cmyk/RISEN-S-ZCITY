@@ -1,12 +1,12 @@
-# 🌆 RISEN'S ZCITY
+# 🌆 Clint McCoy's ZCITY
 
 > A high-intensity, immersive **Garry’s Mod gameplay addon** featuring advanced damage systems, custom weapons, and a fully integrated game mode.
 
 ---
 
-## 🚀 What is RISEN'S ZCITY?
+## 🚀 What is Clint McCoy's ZCITY?
 
-**RISEN'S ZCITY** is a gameplay overhaul for Garry’s Mod that transforms the experience with deeper mechanics, enhanced combat, and a unique city-based environment.
+**Clint McCoy's ZCITY** is a gameplay overhaul for Garry’s Mod that transforms the experience with deeper mechanics, enhanced combat, and a unique city-based environment.
 
 - ⚔️ Custom damage system
 - 🔫 Unique weapon base
@@ -28,7 +28,7 @@
 - Easy integration for developers  
 
 🎮 **Game Mode Integration**
-- Dedicated ARXIV ZCITY game mode  
+- Dedicated Clint McCoy's ZCITY game mode  
 - Built for community servers  
 - Optimized for performance  
 
