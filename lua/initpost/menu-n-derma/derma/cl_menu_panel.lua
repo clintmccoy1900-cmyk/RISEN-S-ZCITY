@@ -5,7 +5,7 @@ local lightblue_select = Color(125, 205, 255)
 local Selects = {
     {Title = "Disconnect", Func = function(luaMenu) RunConsoleCommand("disconnect") end},
     {Title = "Main Menu", Func = function(luaMenu) gui.ActivateGameUI() luaMenu:Close() end},
-    {Title = "Discord", Func = function(luaMenu) luaMenu:Close() gui.OpenURL("https://discord.gg/EydrFSjeFA")  end},
+    {Title = "Discord", Func = function(luaMenu) luaMenu:Close() gui.OpenURL("https://discord.gg/hkJNb6Kcr7")  end},
     {Title = "Traitor Role",
     GamemodeOnly = true,
     CreatedFunc = function(self, parent, luaMenu)
@@ -106,6 +106,7 @@ surface.CreateFont("ZC_MM_Title", {
 -- local Title = markup.Parse("error")
 
 local Pluv = Material("pluv/pluvkid.jpg")
+local BRAND_TITLE = "CLINT MCCOY'S"
 
 function PANEL:InitializeMarkup()
 	local mapname = game.GetMap()
@@ -123,7 +124,7 @@ function PANEL:InitializeMarkup()
         return markup.Parse(text)
     end
 
-    local text = "<font=ZC_MM_Title><colour=125,205,255,255>RISEN'S</colour><colour=255,255,255,0>  </colour>\nZCITY</font>\n<font=ZCity_Tiny><colour=105,105,105>" .. gm .. "</colour></font>"
+    local text = "<font=ZC_MM_Title><colour=125,205,255,255>" .. BRAND_TITLE .. "</colour><colour=255,255,255,0>  </colour>\nZCITY</font>\n<font=ZCity_Tiny><colour=105,105,105>" .. gm .. "</colour></font>"
     return markup.Parse(text)
 end
 
@@ -150,10 +151,14 @@ function PANEL:Init()
         end
     end)
 
+    surface.SetFont("ZC_MM_Title")
+    local titleWidth = surface.GetTextSize(BRAND_TITLE)
+    local menuWidth = math.max(ScrW() / 4, titleWidth + ScreenScale(24))
+
     self.lDock = vgui.Create("DPanel", self)
     local lDock = self.lDock
     lDock:Dock(LEFT)
-    lDock:SetSize(ScrW() / 4, ScrH())
+    lDock:SetSize(menuWidth, ScrH())
     lDock:DockMargin(ScreenScale(0), ScreenScaleH(90), ScreenScale(10), ScreenScaleH(90))
     lDock.Paint = function(this, w, h)
         if hg.PluvTown.Active then
@@ -174,15 +179,15 @@ function PANEL:Init()
 
     local bottomDock = vgui.Create("DPanel", self)
     bottomDock:SetPos(ScreenScale(1), ScrH() - ScrH()/10)
-    bottomDock:SetSize(ScreenScale(190), ScreenScaleH(40))
+    bottomDock:SetSize(menuWidth, ScreenScaleH(40))
     bottomDock.Paint = function(this, w, h) end
     self.panelparrent = vgui.Create("DPanel", self)
-    self.panelparrent:SetPos(bottomDock:GetWide()+bottomDock:GetX(), 0)
-    self.panelparrent:SetSize(ScrW() - bottomDock:GetWide()*1, ScrH())
+    self.panelparrent:SetPos(menuWidth + bottomDock:GetX(), 0)
+    self.panelparrent:SetSize(ScrW() - menuWidth - bottomDock:GetX(), ScrH())
     self.panelparrent.Paint = function(this, w, h) end
     
-    local gitHubURL = "https://github.com/clintmccoy1900-cmyk/RISEN-S-ZCITY"
-    local gitHubText = "GitHub: github.com/clintmccoy1900-cmyk/RISEN-S-ZCITY"
+    local gitHubURL = "https://github.com/clintmccoy1900-cmyk/CLINTMCCOY-S-ZCITY"
+    local gitHubText = "GitHub: https://github.com/clintmccoy1900-cmyk/CLINTMCCOY-S-ZCITY"
 
     local git = vgui.Create("DLabel", bottomDock)
     git:Dock(BOTTOM)
@@ -203,7 +208,7 @@ function PANEL:Init()
     zteam:DockMargin(ScreenScale(10), 0, 0, 0)
     zteam:SetFont("ZCity_Tiny")
     zteam:SetTextColor(clr_gray)
-    zteam:SetText("Authors: RISEN")
+    zteam:SetText("Authors: clintmccoy1900-cmyk")
     zteam:SetContentAlignment(4)
     zteam:SizeToContents()
 end
