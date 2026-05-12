@@ -376,6 +376,10 @@ function MODE.ResetProfessionStats(ply)
 	local health_ratio = math.Clamp(current_health / old_max_health, 0, 1)
 
 	ply:SetMaxHealth(base_health)
+	ply:SetModelScale(1, 0)
+	ply.MeleeDamageMul = nil
+	ply.StaminaExhaustMul = nil
+	ply.JumpPowerMul = nil
 
 	if(ply:Alive())then
 		ply:SetHealth(math.Clamp(math.Round(base_health * health_ratio), 1, base_health))
@@ -390,6 +394,10 @@ function MODE.ResetProfessionStats(ply)
 		stamina.range = MODE.BaseProfessionStamina
 		stamina.max = MODE.BaseProfessionStamina
 		stamina[1] = math.Clamp(math.Round(MODE.BaseProfessionStamina * stamina_ratio), 0, stamina.max)
+	end
+
+	if(ply.organism)then
+		ply.organism.legstrength = 1
 	end
 end
 
@@ -426,6 +434,26 @@ function MODE.ApplyProfessionLoadout(ply)
 			stamina.range = stamina_max
 			stamina.max = stamina_max
 			stamina[1] = math.Clamp(math.Round(stamina_max * stamina_ratio), 0, stamina.max)
+		end
+
+		if(profession_info.ModelScale and profession_info.ModelScale != 1)then
+			ply:SetModelScale(profession_info.ModelScale, 0)
+		end
+
+		if(profession_info.MeleeDamageMultiplier and profession_info.MeleeDamageMultiplier != 1)then
+			ply.MeleeDamageMul = profession_info.MeleeDamageMultiplier
+		end
+
+		if(profession_info.StaminaExhaustMultiplier and profession_info.StaminaExhaustMultiplier != 1)then
+			ply.StaminaExhaustMul = profession_info.StaminaExhaustMultiplier
+		end
+
+		if(profession_info.JumpPowerMultiplier and profession_info.JumpPowerMultiplier != 1)then
+			ply.JumpPowerMul = profession_info.JumpPowerMultiplier
+		end
+
+		if(profession_info.LegStrengthMultiplier and profession_info.LegStrengthMultiplier != 1 and ply.organism)then
+			ply.organism.legstrength = profession_info.LegStrengthMultiplier
 		end
 	end
 
@@ -1095,6 +1123,8 @@ function MODE:Intermission()
 
 	for k, ply in player.Iterator() do
 		if ply:Team() == TEAM_SPECTATOR then continue end
+		MODE.ClearProfessionLoadout(ply)
+		MODE.ResetProfessionStats(ply)
 		ply:KillSilent()
 
 		ply.isPolice = false
@@ -1602,6 +1632,13 @@ hook.Add("PlayerDeath", "HMCD_TraitorDeathTracking", function(ply, _)
     if ply.isTraitor then
         MODE:SendTraitorDeathState(ply, false)
     end
+
+	if ply.Profession then
+		MODE.ClearProfessionLoadout(ply)
+		ply.Profession = nil
+		MODE.ResetProfessionStats(ply)
+		MODE.SyncProfession(ply)
+	end
 end)
 
 
@@ -1739,6 +1776,8 @@ function MODE:EndRound()
 		ply.MainTraitor = false
 		ply.SubRole = nil
 		ply.Profession = nil
+		MODE.ClearProfessionLoadout(ply)
+		MODE.ResetProfessionStats(ply)
 	end
 	
 	if(not winner)then
@@ -2015,6 +2054,8 @@ function MODE.SpawnPlayers(spawn_with_subroles)
     for i, ply in player.Iterator() do
         if(ply:Team() != TEAM_SPECTATOR)then
             player_count = player_count + 1
+			MODE.ClearProfessionLoadout(ply)
+			MODE.ResetProfessionStats(ply)
 			ply.Profession = nil
         end
     end
@@ -2152,6 +2193,8 @@ function MODE.SpawnPlayers(spawn_with_subroles)
             if(!current_ply:Alive())then
                 continue
             end
+
+			MODE.ResetProfessionStats(current_ply)
 
             current_ply:SetSuppressPickupNotices(true)
             current_ply.noSound = true
